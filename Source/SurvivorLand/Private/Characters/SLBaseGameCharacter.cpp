@@ -6,11 +6,34 @@
 #include "GameFramework/PlayerController.h"
 #include "Components/SLInputHandlerComponent.h"
 #include "SurvivorLandGameplayTags.h" // your native tags namespace
+#include "Camera/CameraComponent.h"
+#include "Components/SLCombatComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/SpringArmComponent.h"
 
 
 ASLBaseGameCharacter::ASLBaseGameCharacter()
 {
+	bUseControllerRotationPitch = false;
+	bUseControllerRotationYaw = false;
+	bUseControllerRotationRoll = false;
+
+	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
+	CameraBoom->SetupAttachment(GetRootComponent());
+	CameraBoom->TargetArmLength = 200.f;
+	CameraBoom->SocketOffset = FVector(0.f,55.f,65.f);
+	CameraBoom->bUsePawnControlRotation = true;
+
+	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
+	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
+	FollowCamera->bUsePawnControlRotation = false;
+
 	InputHandlerComponent = CreateDefaultSubobject<USLInputHandlerComponent>(TEXT("InputHandlerComponent"));
+	CombatComponent = CreateDefaultSubobject<USLCombatComponent>(TEXT("CombatComponent"));
+
+	GetCharacterMovement()->bOrientRotationToMovement = true;
+	GetCharacterMovement()->RotationRate = FRotator(0.f, 500.f, 0.f);
+
 }
 
 void ASLBaseGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -37,6 +60,11 @@ void ASLBaseGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 void ASLBaseGameCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	// Bind Input
+	if (CombatComponent && InputHandlerComponent)
+	{
+		CombatComponent->BindToInput(InputHandlerComponent);
+	}
 }
 
 void ASLBaseGameCharacter::HandleAxis2D(FGameplayTag InputTag, FVector2D Value)
@@ -59,8 +87,8 @@ void ASLBaseGameCharacter::HandleAxis2D(FGameplayTag InputTag, FVector2D Value)
 	// Look
 	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Look)
 	{
-		AddControllerYawInput(Value.X);
-		AddControllerPitchInput(Value.Y);
+		AddControllerYawInput(Value.X * LookSensitivity);
+		AddControllerPitchInput(Value.Y * LookSensitivity);
 		return;
 	}
 }

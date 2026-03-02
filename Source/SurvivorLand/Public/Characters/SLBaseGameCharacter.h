@@ -7,6 +7,9 @@
 #include "GameplayTagContainer.h"
 #include "SLBaseGameCharacter.generated.h"
 
+class USLCombatComponent;
+class UCameraComponent;
+class USpringArmComponent;
 class USLInputHandlerComponent;
 class UDataAsset_InputConfig;
 
@@ -14,23 +17,47 @@ UCLASS()
 class SURVIVORLAND_API ASLBaseGameCharacter : public ACharacter
 {
 	GENERATED_BODY()
-
 public:
+	
 	ASLBaseGameCharacter();
+	
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
 protected:
+	
 	virtual void BeginPlay() override;
 
-	/** Input handler component (unified input pipeline). */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="SL|Components")
-	TObjectPtr<USLInputHandlerComponent> InputHandlerComponent;
+private:
+
+#pragma region Inputs
 
 	/** Input config to use for this pawn (assign in BP_SurvivorBase / BP_MonsterBase). */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="SL|Input")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="SL|Input", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UDataAsset_InputConfig> InputConfig;
 
-private:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "CharacterData", meta = (AllowPrivateAccess = "true"))
+	float LookSensitivity = 0.3f;
+
+#pragma endregion
+
+#pragma region Components
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
+	USpringArmComponent* CameraBoom;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
+	UCameraComponent* FollowCamera;
+
+	/** Input handler component (unified input pipeline). */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="SL|Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USLInputHandlerComponent> InputHandlerComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="SL|Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USLCombatComponent> CombatComponent;
+
+
+#pragma endregion
+	
 	// Handlers bound to the InputHandlerComponent delegates:
 	UFUNCTION()
 	void HandleAxis2D(FGameplayTag InputTag, FVector2D Value);
