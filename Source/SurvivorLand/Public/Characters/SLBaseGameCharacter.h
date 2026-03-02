@@ -4,8 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
-#include "SLBaseGameCharacter.generated.h"
 #include "GameplayTagContainer.h"
+#include "SLBaseGameCharacter.generated.h"
 
 class USLInputHandlerComponent;
 class UDataAsset_InputConfig;
