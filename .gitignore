@@ -1,0 +1,42 @@
+# ======================
+# Unreal Engine
+# ======================
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+
+# Third-party dependencies (SDKs, binaries)
+ThirdParty/
+External/
+Dependencies/
+
+# Unreal generated project files
+Intermediate/ProjectFiles/
+
+# ======================
+# IDEs
+# ======================
+
+# Visual Studio
+.vs/
+*.sln
+*.vcxproj
+*.VC.db
+*.opensdf
+.vsconfig
+
+# Native binaries (safe if you don't ship source libs)
+*.dll
+*.lib
+*.so
+*.dylib
+
+# Rider
+.idea/
+
+# ======================
+# OS junk
+# ======================
+.DS_Store
+Thumbs.db
