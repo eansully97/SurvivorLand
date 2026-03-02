@@ -1,0 +1,14 @@
+{
+	"Targets": [
+		{
+			"Name": "SurvivorLand",
+			"Path": "..\\Source\\SurvivorLand.Target.cs",
+			"Type": "Game"
+		},
+		{
+			"Name": "SurvivorLandEditor",
+			"Path": "..\\Source\\SurvivorLandEditor.Target.cs",
+			"Type": "Editor"
+		}
+	]
+}
