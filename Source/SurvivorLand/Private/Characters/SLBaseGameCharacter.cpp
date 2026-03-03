@@ -92,12 +92,17 @@ void ASLBaseGameCharacter::HandleAxis2D(FGameplayTag InputTag, FVector2D Value)
 
 bool ASLBaseGameCharacter::IsWeaponEquipped()
 {
+	if (!CombatComponent) return false;
 	return (CombatComponent->GetEquippedWeapon() != nullptr);
 }
 
 ASLWeaponBase* ASLBaseGameCharacter::GetEquippedWeapon()
 {
-	return CombatComponent->Inventory[CombatComponent->EquippedIndex];
+	if (CombatComponent && !CombatComponent->Inventory.IsEmpty() && CombatComponent->Inventory[CombatComponent->EquippedIndex])
+	{
+		return CombatComponent->Inventory[CombatComponent->EquippedIndex];
+	}
+	return nullptr;
 }
 
 void ASLBaseGameCharacter::HandleActionStarted(FGameplayTag InputTag)

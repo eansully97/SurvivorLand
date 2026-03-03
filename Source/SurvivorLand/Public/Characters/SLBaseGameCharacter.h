@@ -23,18 +23,10 @@ public:
 	ASLBaseGameCharacter();
 	
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
-
 	
 	bool IsWeaponEquipped();
 	ASLWeaponBase* GetEquippedWeapon();
-
-protected:
 	
-	virtual void BeginPlay() override;
-
-public:
-
-
 #pragma region Inputs
 
 	/** Input config to use for this pawn (assign in BP_SurvivorBase / BP_MonsterBase). */
@@ -63,7 +55,11 @@ public:
 
 
 #pragma endregion
+
+protected:
 	
+	virtual void BeginPlay() override;
+
 	// Handlers bound to the InputHandlerComponent delegates:
 	UFUNCTION()
 	void HandleAxis2D(FGameplayTag InputTag, FVector2D Value);

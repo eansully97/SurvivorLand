@@ -4,11 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "Animation/AnimInstance.h"
+#include "Data/SLWeaponData.h"
 #include "SLBasePlayerAnimInstance.generated.h"
 
 class ASLBaseGameCharacter;
 class UCharacterMovementComponent;
-class ASLWeaponBase;
 /**
  * 
  */
@@ -32,8 +32,8 @@ protected:
 	UPROPERTY()
 	UCharacterMovementComponent* OwningMovementComponent;
 
-	UPROPERTY()
-	ASLWeaponBase* EquippedWeapon;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="AnimData|Weapon")
+	TWeakObjectPtr<const USLWeaponDataAsset> EquippedWeaponData;
 	
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "AnimData|LocomotionData")
 	float GroundSpeed;
@@ -64,7 +64,5 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="AnimData|Aiming")
 	float AimPitch = 0.f;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="AnimData|Aiming")
-	bool bIsAiming = false;
+	
 };
