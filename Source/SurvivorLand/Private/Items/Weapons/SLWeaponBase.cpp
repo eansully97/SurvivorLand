@@ -23,7 +23,7 @@ ASLWeaponBase::ASLWeaponBase()
 
 	Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Mesh"));
 	Mesh->SetupAttachment(RootComponent);
-	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Mesh->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
 }
 
 void ASLWeaponBase::ServerGiveTo(ASLBaseGameCharacter* NewOwnerChar)
@@ -33,27 +33,58 @@ void ASLWeaponBase::ServerGiveTo(ASLBaseGameCharacter* NewOwnerChar)
 		return;
 	}
 
-	// Tell combat to equip input context (stateful input)
 	if (USLCombatComponent* Combat = NewOwnerChar->FindComponentByClass<USLCombatComponent>())
 	{
-		if (APlayerController* PC = Cast<APlayerController>(NewOwnerChar->GetController()))
-		{
-			Combat->EquipWeaponContext(PC, WeaponData->WeaponMappingContext, /*Priority*/ 1);
-		}
+		Combat->Client_OnWeaponEquipped(WeaponData->WeaponMappingContext, WeaponData);
 	}
+	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Mesh->SetSimulatePhysics(false);
 
-	// Optional: attach the weapon mesh to the character (cosmetic)
-	// You can pick a socket later ("hand_rSocket" etc)
-	AttachToComponent(NewOwnerChar->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, NAME_None);
+	static const FName RightHandSocketName(TEXT("RightHandSocket"));
+	Mesh->AttachToComponent(
+		NewOwnerChar->GetMesh(),
+		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+		RightHandSocketName
+	);
 
-	// Disable pickup collision & hide in world
+	// Optional: reset relative offset (sometimes helps)
+	Mesh->SetRelativeLocation(FVector::ZeroVector);
+	Mesh->SetRelativeRotation(FRotator::ZeroRotator);
+
 	PickupSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	SetActorHiddenInGame(true);
-	SetActorEnableCollision(false);
+}
+
+void ASLWeaponBase::OnConstruction(const FTransform& Transform)
+{
+	Super::OnConstruction(Transform);
+
+	if (WeaponData && WeaponData->WeaponMesh)
+	{
+		Mesh->SetSkeletalMesh(WeaponData->WeaponMesh);
+		Mesh->SetSimulatePhysics(true);
+	}
+	else
+	{
+		Mesh->SetSkeletalMesh(nullptr);
+	}
+}
+
+void ASLWeaponBase::BeginPlay()
+{
+	Super::BeginPlay();
+
+	// Safety for runtime (esp. if WeaponData gets set dynamically)
+	if (WeaponData && WeaponData->WeaponMesh && Mesh->GetSkeletalMeshAsset() != WeaponData->WeaponMesh)
+	{
+		Mesh->SetSkeletalMesh(WeaponData->WeaponMesh);
+		Mesh->SetSimulatePhysics(true);
+	}
 }
 
 void ASLWeaponBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 }
+
+
 

@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "SLWeaponBase.generated.h"
 
+class UInputMappingContext;
 class USphereComponent;
 class USkeletalMeshComponent;
 class USLWeaponDataAsset;
@@ -32,5 +33,8 @@ public:
 	void ServerGiveTo(class ASLBaseGameCharacter* NewOwnerChar);
 
 protected:
+	virtual void OnConstruction(const FTransform& Transform) override;
+	virtual void BeginPlay() override;
+	
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 };

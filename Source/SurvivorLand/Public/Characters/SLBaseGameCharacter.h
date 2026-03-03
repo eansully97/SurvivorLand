@@ -27,7 +27,8 @@ protected:
 	
 	virtual void BeginPlay() override;
 
-private:
+public:
+
 
 #pragma region Inputs
 

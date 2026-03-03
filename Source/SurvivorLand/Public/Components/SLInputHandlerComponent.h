@@ -4,6 +4,7 @@
 #include "Components/ActorComponent.h"
 #include "GameplayTagContainer.h"
 #include "InputActionValue.h"
+#include "Data/SLInputDataConfig.h"
 #include "SLInputHandlerComponent.generated.h"
 
 class UEnhancedInputComponent;
@@ -33,6 +34,9 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category="Input")
 	FOnTaggedAxis2DEvent OnAxis2D;
+
+	UFUNCTION(BlueprintCallable, Category="SL|Input")
+	void BindAdditionalActions(UEnhancedInputComponent* EnhancedInputComp, const TArray<FSurvivorLandTaggedInputAction>& ActionsToBind);
 
 private:
 	// Internal handlers bound to Enhanced Input

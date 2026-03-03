@@ -4,6 +4,7 @@
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
 #include "GameplayTagContainer.h"
+#include "SLInputDataConfig.h"
 #include "SLWeaponData.generated.h"
 
 class UInputMappingContext;
@@ -23,4 +24,7 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon|Visual")
 	TObjectPtr<USkeletalMesh> WeaponMesh = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon|Input", meta=(TitleProperty="InputTag"))
+	TArray<FSurvivorLandTaggedInputAction> GrantedInputActions;
 };

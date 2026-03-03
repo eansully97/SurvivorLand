@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "GameplayTagContainer.h"
+#include "Data/SLWeaponData.h"
 #include "SLCombatComponent.generated.h"
 
 class USLInputHandlerComponent;
@@ -35,6 +36,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="SL|Combat")
 	void UnequipWeaponContext(class APlayerController* PC);
+
+	UFUNCTION(Client, Reliable)
+	void Client_OnWeaponEquipped(UInputMappingContext* WeaponContext, const USLWeaponDataAsset* WeaponData);
 
 private:
 	UFUNCTION()

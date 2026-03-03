@@ -49,6 +49,32 @@ void USLInputHandlerComponent::InitializeInput(APlayerController* PC, UEnhancedI
 	bInitialized = true;
 }
 
+void USLInputHandlerComponent::BindAdditionalActions(UEnhancedInputComponent* EnhancedInputComp, const TArray<FSurvivorLandTaggedInputAction>& ActionsToBind)
+{
+	if (!EnhancedInputComp)
+	{
+		return;
+	}
+
+	for (const FSurvivorLandTaggedInputAction& Entry : ActionsToBind)
+	{
+		if (!Entry.IsValid())
+		{
+			continue;
+		}
+
+		if (Entry.ValueType == EInputActionValueType::Axis2D)
+		{
+			EnhancedInputComp->BindAction(Entry.InputAction, ETriggerEvent::Triggered, this, &USLInputHandlerComponent::HandleAxis2DTriggered, Entry.InputTag);
+		}
+		else
+		{
+			EnhancedInputComp->BindAction(Entry.InputAction, ETriggerEvent::Started, this, &USLInputHandlerComponent::HandleActionStarted, Entry.InputTag);
+			EnhancedInputComp->BindAction(Entry.InputAction, ETriggerEvent::Completed, this, &USLInputHandlerComponent::HandleActionCompleted, Entry.InputTag);
+		}
+	}
+}
+
 void USLInputHandlerComponent::ApplyMappingContext(APlayerController* PC, const UDataAsset_InputConfig* InputConfig)
 {
 	if (!InputConfig || !InputConfig->DefaultMappingContext)

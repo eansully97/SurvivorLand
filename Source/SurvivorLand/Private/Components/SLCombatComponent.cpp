@@ -3,11 +3,13 @@
 
 #include "Public/Components/SLCombatComponent.h"
 
+#include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/PlayerController.h"
 #include "SurvivorLandGameplayTags.h" // or your tag header
 #include "Characters/SLBaseGameCharacter.h"
 #include "Components/SLInputHandlerComponent.h"
+#include "Data/SLWeaponData.h"
 #include "Items/Weapons/SLWeaponBase.h"
 
 USLCombatComponent::USLCombatComponent()
@@ -49,6 +51,30 @@ void USLCombatComponent::EquipWeaponContext(APlayerController* PC, UInputMapping
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = LP->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
 		{
 			Subsystem->AddMappingContext(WeaponContext, Priority);
+		}
+	}
+}
+
+void USLCombatComponent::Client_OnWeaponEquipped_Implementation(UInputMappingContext* WeaponContext, const USLWeaponDataAsset* WeaponData)
+{
+	ASLBaseGameCharacter* OwnerChar = Cast<ASLBaseGameCharacter>(GetOwner());
+	if (!OwnerChar) return;
+
+	APlayerController* PC = Cast<APlayerController>(OwnerChar->GetController());
+	if (!PC) return;
+
+	// Add mapping context locally (owner client)
+	if (WeaponContext)
+	{
+		EquipWeaponContext(PC, WeaponContext, 1);
+	}
+
+	// Bind weapon actions locally
+	if (WeaponData && OwnerChar->InputHandlerComponent)
+	{
+		if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(OwnerChar->InputComponent))
+		{
+			OwnerChar->InputHandlerComponent->BindAdditionalActions(EIC, WeaponData->GrantedInputActions);
 		}
 	}
 }
