@@ -9,11 +9,12 @@ namespace SurvivorLandGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Input_Shared_Look, "Input.Shared.Look");
 	UE_DEFINE_GAMEPLAY_TAG(Input_Shared_Jump, "Input.Shared.Jump");
 	UE_DEFINE_GAMEPLAY_TAG(Input_Shared_Interact, "Input.Shared.Interact");
+	UE_DEFINE_GAMEPLAY_TAG(Input_Shared_Drop, "Input.Shared.Drop");
 
 	UE_DEFINE_GAMEPLAY_TAG(Input_Survivor_Fire, "Input.Survivor.Fire");
 	UE_DEFINE_GAMEPLAY_TAG(Input_Survivor_Aim, "Input.Survivor.Aim");
 	UE_DEFINE_GAMEPLAY_TAG(Input_Survivor_Reload, "Input.Survivor.Reload");
-	UE_DEFINE_GAMEPLAY_TAG(Input_Survivor_Drop, "Input.Survivor.Drop");
+	
 
 	UE_DEFINE_GAMEPLAY_TAG(Input_Monster_PrimaryAttack, "Input.Monster.PrimaryAttack");
 	UE_DEFINE_GAMEPLAY_TAG(Input_Monster_SecondaryAttack, "Input.Monster.SecondaryAttack");

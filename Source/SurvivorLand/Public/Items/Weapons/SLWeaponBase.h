@@ -6,10 +6,10 @@
 #include "GameFramework/Actor.h"
 #include "SLWeaponBase.generated.h"
 
-class UInputMappingContext;
 class USphereComponent;
 class USkeletalMeshComponent;
 class USLWeaponDataAsset;
+class ASLBaseGameCharacter;
 
 UCLASS()
 class SURVIVORLAND_API ASLWeaponBase : public AActor
@@ -19,22 +19,37 @@ class SURVIVORLAND_API ASLWeaponBase : public AActor
 public:
 	ASLWeaponBase();
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Weapon")
 	TObjectPtr<USphereComponent> PickupSphere;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Weapon")
 	TObjectPtr<USkeletalMeshComponent> Mesh;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon")
 	TObjectPtr<USLWeaponDataAsset> WeaponData;
 
-	/** Called on server to give this weapon to a character. */
-	UFUNCTION()
-	void ServerGiveTo(class ASLBaseGameCharacter* NewOwnerChar);
+	/** Server: Give weapon to a character (attach, disable pickup, stop physics). */
+	void ServerGiveTo(ASLBaseGameCharacter* NewOwnerChar);
+
+	/** Server: Drop weapon into world (detach, enable pickup, enable physics). */
+	void ServerDropFromOwner(const FVector& WorldLocation, const FVector& Impulse = FVector::ZeroVector);
+
+	/** True when weapon is currently held/equipped (server authoritative, replicated). */
+	UFUNCTION(BlueprintCallable, Category="Weapon")
+	bool IsHeld() const { return bIsHeld; }
 
 protected:
 	virtual void OnConstruction(const FTransform& Transform) override;
-	virtual void BeginPlay() override;
-	
+
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+private:
+	void ApplyVisualFromDataAsset();
+
+	void SetPickupEnabled(bool bEnabled);
+	void SetPhysicsEnabled(bool bEnabled);
+
+	/** Replicated state to prevent double-pickup and support clients. */
+	UPROPERTY(Replicated)
+	bool bIsHeld = false;
 };
