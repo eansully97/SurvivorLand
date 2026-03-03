@@ -11,7 +11,6 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 
-
 ASLBaseGameCharacter::ASLBaseGameCharacter()
 {
 	bUseControllerRotationPitch = false;
@@ -83,14 +82,22 @@ void ASLBaseGameCharacter::HandleAxis2D(FGameplayTag InputTag, FVector2D Value)
 		}
 		return;
 	}
-
 	// Look
 	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Look)
 	{
 		AddControllerYawInput(Value.X * LookSensitivity);
 		AddControllerPitchInput(Value.Y * LookSensitivity);
-		return;
 	}
+}
+
+bool ASLBaseGameCharacter::IsWeaponEquipped()
+{
+	return (CombatComponent->GetEquippedWeapon() != nullptr);
+}
+
+ASLWeaponBase* ASLBaseGameCharacter::GetEquippedWeapon()
+{
+	return CombatComponent->Inventory[CombatComponent->EquippedIndex];
 }
 
 void ASLBaseGameCharacter::HandleActionStarted(FGameplayTag InputTag)
@@ -104,7 +111,6 @@ void ASLBaseGameCharacter::HandleActionStarted(FGameplayTag InputTag)
 	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Fire)
 	{
 		UE_LOG(LogTemp, Log, TEXT("Survivor Fire pressed"));
-		return;
 	}
 }
 
@@ -113,6 +119,5 @@ void ASLBaseGameCharacter::HandleActionCompleted(FGameplayTag InputTag)
 	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Jump)
 	{
 		StopJumping();
-		return;
 	}
 }

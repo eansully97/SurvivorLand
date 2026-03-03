@@ -9,6 +9,7 @@
 
 class UInputMappingContext;
 class USkeletalMesh;
+class UANimInstance;
 
 UCLASS(BlueprintType)
 class SURVIVORLAND_API USLWeaponDataAsset : public UDataAsset
@@ -24,6 +25,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon|Visual")
 	TObjectPtr<USkeletalMesh> WeaponMesh = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon|Animation|Layers")
+	TSubclassOf<UAnimInstance> SurvivorUpperBodyLayerClass = nullptr;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon|Input", meta=(TitleProperty="InputTag"))
 	TArray<FSurvivorLandTaggedInputAction> GrantedInputActions;

@@ -8,6 +8,7 @@
 
 class ASLBaseGameCharacter;
 class UCharacterMovementComponent;
+class ASLWeaponBase;
 /**
  * 
  */
@@ -20,6 +21,10 @@ public:
 	virtual void NativeInitializeAnimation() override;
 	virtual void NativeThreadSafeUpdateAnimation(float DeltaSeconds) override;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="SL|Animation|Layers")
+	TSubclassOf<UAnimInstance> DefaultUnarmedUpperBodyLayerClass = nullptr;
+	
+
 protected:
 	UPROPERTY()
 	ASLBaseGameCharacter* OwningCharacter;
@@ -27,8 +32,14 @@ protected:
 	UPROPERTY()
 	UCharacterMovementComponent* OwningMovementComponent;
 
+	UPROPERTY()
+	ASLWeaponBase* EquippedWeapon;
+	
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "AnimData|LocomotionData")
 	float GroundSpeed;
+
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "AnimData|LocomotionData")
+	bool bWeaponEquipped;
 
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "AnimData|LocomotionData")
 	float Direction;
@@ -47,4 +58,13 @@ protected:
 	
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "AnimData|LocomotionData")
 	bool bIsCrouched;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="AnimData|Aiming")
+	float AimYaw = 0.f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="AnimData|Aiming")
+	float AimPitch = 0.f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="AnimData|Aiming")
+	bool bIsAiming = false;
 };

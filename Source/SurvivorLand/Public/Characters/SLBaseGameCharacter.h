@@ -7,6 +7,7 @@
 #include "GameplayTagContainer.h"
 #include "SLBaseGameCharacter.generated.h"
 
+class ASLWeaponBase;
 class USLCombatComponent;
 class UCameraComponent;
 class USpringArmComponent;
@@ -22,6 +23,10 @@ public:
 	ASLBaseGameCharacter();
 	
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+
+	
+	bool IsWeaponEquipped();
+	ASLWeaponBase* GetEquippedWeapon();
 
 protected:
 	
@@ -62,6 +67,7 @@ public:
 	// Handlers bound to the InputHandlerComponent delegates:
 	UFUNCTION()
 	void HandleAxis2D(FGameplayTag InputTag, FVector2D Value);
+	
 
 	UFUNCTION()
 	void HandleActionStarted(FGameplayTag InputTag);

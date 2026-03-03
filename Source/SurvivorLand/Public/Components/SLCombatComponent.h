@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "GameplayTagContainer.h"
+#include "Characters/SLBaseGameCharacter.h"
 #include "SLCombatComponent.generated.h"
 
 class USLInputHandlerComponent;
@@ -59,6 +60,8 @@ private:
 	// Internal server logic
 	void TryPickupWeapon_Internal();
 	void DropEquippedWeapon_Internal();
+	void SetEquippedOrientationSettings(ASLBaseGameCharacter* OwnerChar);
+	void RevertCharacterOrientationSettings(ASLBaseGameCharacter* OwnerChar);
 
 	// Input delegate handlers
 	UFUNCTION()
