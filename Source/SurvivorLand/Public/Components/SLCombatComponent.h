@@ -24,9 +24,6 @@ public:
 
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 
-	/** Bind to the input handler (call from BeginPlay of character, once). */
-	void BindToInput(USLInputHandlerComponent* InputHandler);
-
 	/** Server: attempts to pick up nearest overlapping weapon. */
 	UFUNCTION(Server, Reliable)
 	void Server_TryPickupWeapon();
@@ -34,6 +31,10 @@ public:
 	/** Server: drop currently equipped weapon. */
 	UFUNCTION(Server, Reliable)
 	void Server_DropEquippedWeapon();
+	
+	void FireEquippedWeapon();
+	void DropEquippedWeapon();
+	void TryInteract();
 
 	UPROPERTY(ReplicatedUsing=OnRep_Aiming)
 	bool bAiming = false;
@@ -47,9 +48,7 @@ public:
 	void SetAiming(bool bNewAiming);
 	
 	bool IsAiming() const { return bAiming; }
-
 	
-
 	/** Inventory */
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category="SL|Combat")
 	TArray<TObjectPtr<ASLWeaponBase>> Inventory;
@@ -75,19 +74,6 @@ private:
 	// Internal server logic
 	void TryPickupWeapon_Internal();
 	void DropEquippedWeapon_Internal();
-	
-
-
-
-	// Input delegate handlers
-	UFUNCTION()
-	void OnActionStarted(FGameplayTag InputTag);
-
-	UFUNCTION()
-	void OnActionCompleted(FGameplayTag InputTag);
-
-	UFUNCTION()
-	void OnAxis2D(FGameplayTag InputTag, FVector2D Value);
 
 	// Input mapping helpers (client-side)
 	void EquipWeaponContext(APlayerController* PC, UInputMappingContext* WeaponContext, int32 Priority = 1);

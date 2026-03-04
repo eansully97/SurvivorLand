@@ -28,8 +28,8 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon")
 	TObjectPtr<USLWeaponDataAsset> WeaponData;
 
-	/** Server: Give weapon to a character (attach, disable pickup, stop physics). */
-	void ServerGiveTo(ASLBaseGameCharacter* NewOwnerChar);
+	UFUNCTION()
+	void ServerGiveTo(class ASLBaseGameCharacter* NewOwnerChar);
 
 	/** Server: Drop weapon into world (detach, enable pickup, enable physics). */
 	void ServerDropFromOwner(const FVector& WorldLocation, const FVector& Impulse = FVector::ZeroVector);

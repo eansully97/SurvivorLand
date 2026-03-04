@@ -5,10 +5,10 @@
 #include "Components/SphereComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Net/UnrealNetwork.h"
-
 #include "Characters/SLBaseGameCharacter.h"
 #include "Components/SLCombatComponent.h"
-#include "Data/SLWeaponData.h" // your USLWeaponDataAsset
+#include "Data/Weapon/SLWeaponData.h"
+#include "Data/Weapon/SLWeaponInputProfile.h"
 
 ASLWeaponBase::ASLWeaponBase()
 {
@@ -91,10 +91,9 @@ void ASLWeaponBase::ServerGiveTo(ASLBaseGameCharacter* NewOwnerChar)
 		AttachSocket
 	);
 
-	// Tell owning client about input / layers
 	if (USLCombatComponent* Combat = NewOwnerChar->FindComponentByClass<USLCombatComponent>())
 	{
-		Combat->Client_OnWeaponEquipped(WeaponData->WeaponMappingContext, WeaponData);
+		Combat->Client_OnWeaponEquipped(nullptr, WeaponData);
 	}
 }
 

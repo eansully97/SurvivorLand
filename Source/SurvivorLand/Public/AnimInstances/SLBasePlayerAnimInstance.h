@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Animation/AnimInstance.h"
-#include "Data/SLWeaponData.h"
+#include "Data/Weapon/SLWeaponData.h"
 #include "SLBasePlayerAnimInstance.generated.h"
 
 class ASLBaseGameCharacter;

@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "GameplayTagContainer.h"
-#include "Data/SLWeaponData.h"
+#include "Data/Weapon/SLWeaponData.h"
 #include "SLBaseGameCharacter.generated.h"
 
 class ASLWeaponBase;
@@ -65,6 +65,7 @@ public:
 protected:
 	
 	virtual void BeginPlay() override;
+	void BindToInput(USLInputHandlerComponent* InputHandler);
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	virtual void Tick(float DeltaTime) override;
 
@@ -72,6 +73,7 @@ private:
 	bool bCachedOrientToMovement = true;
 	bool bCachedUseControllerYaw = false;
 	float CachedRotationRateYaw = 540.f;
+	
 	UPROPERTY(Transient)
 	bool bTurningInPlace = false;
 	
@@ -80,6 +82,7 @@ public:
 	void SetStrafeAimingMode(bool bEnable);
 
 	// Handlers bound to the InputHandlerComponent delegates:
+	bool bInputBound = false;
 	UFUNCTION()
 	void HandleAxis2D(FGameplayTag InputTag, FVector2D Value);
 

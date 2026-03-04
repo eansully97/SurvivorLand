@@ -158,12 +158,18 @@ void ASLBaseGameCharacter::UpdateTurnInPlace(float DeltaSeconds)
 void ASLBaseGameCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	// Bind Input to Combat Component
-	if (CombatComponent && InputHandlerComponent)
-	{
-		CombatComponent->BindToInput(InputHandlerComponent);
-	}
+
+}
+
+void ASLBaseGameCharacter::BindToInput(USLInputHandlerComponent* InputHandler)
+{
+	if (!InputHandler || bInputBound) return;
+
+	InputHandler->OnActionStarted.AddDynamic(this, &ThisClass::HandleActionStarted);
+	InputHandler->OnActionCompleted.AddDynamic(this, &ThisClass::HandleActionCompleted);
+	InputHandler->OnAxis2D.AddDynamic(this, &ThisClass::HandleAxis2D);
+
+	bInputBound = true;
 }
 
 float ASLBaseGameCharacter::GetAimYawOffset() const
@@ -198,7 +204,6 @@ void ASLBaseGameCharacter::HandleAxis2D(FGameplayTag InputTag, FVector2D Value)
 	{
 		AddControllerYawInput(Value.X * LookSensitivity);
 		AddControllerPitchInput(Value.Y * LookSensitivity);
-		return;
 	}
 }
 
@@ -225,23 +230,16 @@ bool ASLBaseGameCharacter::IsAiming() const
 
 void ASLBaseGameCharacter::HandleActionStarted(FGameplayTag InputTag)
 {
-	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Jump)
-	{
-		Jump();
-		return;
-	}
-
-	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Fire)
-	{
-		// Gun->Fire
-	}
+	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Jump) Jump();
+	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Aim) CombatComponent->SetAiming(true);
+	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Fire) CombatComponent->FireEquippedWeapon();
+	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Drop) CombatComponent->DropEquippedWeapon();
+	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Interact) CombatComponent->TryInteract();
 }
 
 void ASLBaseGameCharacter::HandleActionCompleted(FGameplayTag InputTag)
 {
-	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Jump)
-	{
-		StopJumping();
-		return;
-	}
+	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Jump) StopJumping();
+	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Aim) CombatComponent->SetAiming(false);
+
 }

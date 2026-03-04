@@ -3,20 +3,16 @@
 #include "Components/SLCombatComponent.h"
 
 #include "Net/UnrealNetwork.h"
-
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/PlayerController.h"
-
-#include "SurvivorLandGameplayTags.h"
 #include "AnimInstances/SLBasePlayerAnimInstance.h"
-#include "Camera/CameraComponent.h"
 #include "Characters/SLBaseGameCharacter.h"
 #include "Components/SLInputHandlerComponent.h"
+#include "Data/Weapon/SLWeaponAnimProfile.h"
 #include "Items/Weapons/SLWeaponBase.h"
-#include "Data/SLWeaponData.h"
-#include "GameFramework/CharacterMovementComponent.h"
-#include "GameFramework/SpringArmComponent.h"
+#include "Data/Weapon/SLWeaponData.h"
+#include "Data/Weapon/SLWeaponInputProfile.h"
 
 USLCombatComponent::USLCombatComponent()
 {
@@ -30,115 +26,6 @@ void USLCombatComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProper
 	DOREPLIFETIME(USLCombatComponent, Inventory);
 	DOREPLIFETIME(USLCombatComponent, EquippedIndex);
 	DOREPLIFETIME(USLCombatComponent, bAiming);
-}
-
-void USLCombatComponent::BindToInput(USLInputHandlerComponent* InputHandler)
-{
-	if (bBoundToInput || !InputHandler)
-	{
-		return;
-	}
-
-	InputHandler->OnActionStarted.AddDynamic(this, &USLCombatComponent::OnActionStarted);
-	InputHandler->OnActionCompleted.AddDynamic(this, &USLCombatComponent::OnActionCompleted);
-	InputHandler->OnAxis2D.AddDynamic(this, &USLCombatComponent::OnAxis2D);
-
-	bBoundToInput = true;
-}
-
-void USLCombatComponent::SetAiming(bool bNewAiming)
-{
-	// local prediction (optional but feels better)
-	if (bAiming == bNewAiming) return;
-	bAiming = bNewAiming;
-	OnRep_Aiming(); // update cosmetic immediately
-
-	if (GetOwnerRole() < ROLE_Authority)
-	{
-		Server_SetAiming(bNewAiming);
-	}
-}
-
-void USLCombatComponent::Server_SetAiming_Implementation(bool bNewAiming)
-{
-	bAiming = bNewAiming;
-	OnRep_Aiming(); // if you want server to run same cosmetic (usually fine)
-}
-
-void USLCombatComponent::OnRep_Aiming()
-{
-	ASLBaseGameCharacter* OwnerChar = Cast<ASLBaseGameCharacter>(GetOwner());
-	if (!OwnerChar) return;
-
-	OwnerChar->SetStrafeAimingMode(bAiming);
-}
-
-void USLCombatComponent::OnActionStarted(FGameplayTag InputTag)
-{
-	// Drop weapon on G (Input.Shared.Drop)
-	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Drop)
-	{
-		if (HasEquippedWeapon())
-		{
-			if (!GetOwner() || !GetOwner()->HasAuthority())
-			{
-				Server_DropEquippedWeapon();
-			}
-			else
-			{
-				DropEquippedWeapon_Internal();
-			}
-		}
-		return;
-	}
-	
-
-	// Interact stays free, for now only pickup if unarmed
-	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Interact)
-	{
-		if (!HasEquippedWeapon())
-		{
-			if (!GetOwner() || !GetOwner()->HasAuthority())
-			{
-				Server_TryPickupWeapon();
-			}
-			else
-			{
-				TryPickupWeapon_Internal();
-			}
-		}
-		return;
-	}
-
-	// Example: fire only when weapon context exists
-	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Fire)
-	{
-		if (HasEquippedWeapon())
-		{
-			UE_LOG(LogTemp, Log, TEXT("Fire pressed (weapon context active)"));
-		}
-		return;
-	}
-
-	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Aim)
-	{
-		SetAiming(true);
-		return;
-	}
-}
-
-void USLCombatComponent::OnActionCompleted(FGameplayTag InputTag)
-{
-	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Aim)
-	{
-		SetAiming(false);
-		return;
-	}
-}
-
-void USLCombatComponent::OnAxis2D(FGameplayTag InputTag, FVector2D Value)
-{
-	// Combat doesn't handle axis yet
 }
 
 void USLCombatComponent::Server_TryPickupWeapon_Implementation()
@@ -223,43 +110,48 @@ void USLCombatComponent::DropEquippedWeapon_Internal()
 		ASLWeaponBase* NewEquipped = GetEquippedWeapon();
 		if (NewEquipped && NewEquipped->WeaponData)
 		{
-			Client_OnWeaponEquipped(NewEquipped->WeaponData->WeaponMappingContext, NewEquipped->WeaponData);
+			Client_OnWeaponEquipped(NewEquipped->WeaponData->InputProfile->MappingContext, NewEquipped->WeaponData);
 		}
 	}
 }
 
 
-void USLCombatComponent::Client_OnWeaponEquipped_Implementation(UInputMappingContext* WeaponContext, const USLWeaponDataAsset* WeaponData)
+void USLCombatComponent::Client_OnWeaponEquipped_Implementation(UInputMappingContext* /*WeaponContext*/, const USLWeaponDataAsset* WeaponData)
 {
 	ASLBaseGameCharacter* OwnerChar = Cast<ASLBaseGameCharacter>(GetOwner());
-	if (!OwnerChar) return;
+	if (!OwnerChar || !WeaponData) return;
 
 	APlayerController* PC = Cast<APlayerController>(OwnerChar->GetController());
 	if (!PC) return;
 
-	// Add mapping context locally
-	if (WeaponContext)
+	// INPUT PROFILE
+	if (WeaponData->InputProfile)
 	{
-		EquipWeaponContext(PC, WeaponContext, 1);
-	}
-
-	// Bind weapon actions locally (Fire etc)
-	if (WeaponData && OwnerChar->InputHandlerComponent)
-	{
-		if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(OwnerChar->InputComponent))
+		if (WeaponData->InputProfile->MappingContext)
 		{
-			OwnerChar->InputHandlerComponent->BindAdditionalActions(EIC, WeaponData->GrantedInputActions);
+			EquipWeaponContext(PC, WeaponData->InputProfile->MappingContext, 1);
+		}
+
+		if (OwnerChar->InputHandlerComponent)
+		{
+			if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(OwnerChar->InputComponent))
+			{
+				OwnerChar->InputHandlerComponent->BindAdditionalActions(
+					EIC,
+					WeaponData->InputProfile->GrantedInputActions
+				);
+			}
 		}
 	}
 
-	if (WeaponData)
+	// ANIM PROFILE
+	if (WeaponData->AnimProfile)
 	{
 		if (UAnimInstance* Anim = OwnerChar->GetMesh()->GetAnimInstance())
 		{
-			// Prefer weapon layer if provided
-			if (WeaponData->SurvivorUpperBodyLayerClass)
+			if (WeaponData->AnimProfile->SurvivorUpperBodyLayerClass)
 			{
-				Anim->LinkAnimClassLayers(WeaponData->SurvivorUpperBodyLayerClass);
+				Anim->LinkAnimClassLayers(WeaponData->AnimProfile->SurvivorUpperBodyLayerClass);
 			}
 		}
 	}
@@ -286,6 +178,48 @@ void USLCombatComponent::Client_OnWeaponUnequipped_Implementation()
 	}
 
 	UnequipWeaponContext(PC);
+}
+
+void USLCombatComponent::SetAiming(bool bNewAiming)
+{
+	// local prediction (optional but feels better)
+	if (bAiming == bNewAiming) return;
+	bAiming = bNewAiming;
+	OnRep_Aiming(); // update cosmetic immediately
+
+	if (GetOwnerRole() < ROLE_Authority)
+	{
+		Server_SetAiming(bNewAiming);
+	}
+}
+
+void USLCombatComponent::Server_SetAiming_Implementation(bool bNewAiming)
+{
+	bAiming = bNewAiming;
+	OnRep_Aiming(); // if you want server to run same cosmetic (usually fine)
+}
+
+void USLCombatComponent::FireEquippedWeapon()
+{
+	
+}
+
+void USLCombatComponent::DropEquippedWeapon()
+{
+	Server_DropEquippedWeapon();
+}
+
+void USLCombatComponent::TryInteract()
+{
+	Server_TryPickupWeapon();
+}
+
+void USLCombatComponent::OnRep_Aiming()
+{
+	ASLBaseGameCharacter* OwnerChar = Cast<ASLBaseGameCharacter>(GetOwner());
+	if (!OwnerChar) return;
+
+	OwnerChar->SetStrafeAimingMode(bAiming);
 }
 
 void USLCombatComponent::EquipWeaponContext(APlayerController* PC, UInputMappingContext* WeaponContext, int32 Priority)
