@@ -21,11 +21,13 @@ class SURVIVORLAND_API ASLBaseGameCharacter : public ACharacter
 public:
 	
 	ASLBaseGameCharacter();
-	
-	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
-	
-	bool IsWeaponEquipped();
-	ASLWeaponBase* GetEquippedWeapon();
+
+	UPROPERTY(BlueprintReadOnly, Category="SL|Aim")
+	FVector AimTargetWorld = FVector::ZeroVector;
+
+	UPROPERTY(BlueprintReadOnly, Category="SL|Aim")
+	FVector AimTargetWorldSmoothed = FVector::ZeroVector;
+
 	
 #pragma region Inputs
 
@@ -59,15 +61,31 @@ public:
 protected:
 	
 	virtual void BeginPlay() override;
+	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+	virtual void Tick(float DeltaTime) override;
+
+	
+public:
 
 	// Handlers bound to the InputHandlerComponent delegates:
 	UFUNCTION()
 	void HandleAxis2D(FGameplayTag InputTag, FVector2D Value);
-	
 
 	UFUNCTION()
 	void HandleActionStarted(FGameplayTag InputTag);
 
 	UFUNCTION()
 	void HandleActionCompleted(FGameplayTag InputTag);
+
+	UFUNCTION()
+	bool IsWeaponEquipped() const;
+	
+	UFUNCTION()
+	ASLWeaponBase* GetEquippedWeapon() const;
+
+	UFUNCTION(BlueprintPure)
+	bool IsAiming();
+
+	UFUNCTION()
+	void UpdateAimTarget(float DeltaSeconds);
 };

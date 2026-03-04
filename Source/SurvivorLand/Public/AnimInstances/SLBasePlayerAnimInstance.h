@@ -23,7 +23,10 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="SL|Animation|Layers")
 	TSubclassOf<UAnimInstance> DefaultUnarmedUpperBodyLayerClass = nullptr;
-	
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="AnimData|WeaponAim")
+	FVector AimTargetWorld = FVector::ZeroVector;
+
 
 protected:
 	UPROPERTY()
@@ -34,10 +37,16 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="AnimData|Weapon")
 	TWeakObjectPtr<const USLWeaponDataAsset> EquippedWeaponData;
+
+	UPROPERTY(BlueprintReadOnly)
+	float ADSAlpha = 0.f;
 	
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "AnimData|LocomotionData")
 	float GroundSpeed;
 
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "AnimData|LocomotionData")
+	bool bAiming;
+	
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "AnimData|LocomotionData")
 	bool bWeaponEquipped;
 
@@ -64,5 +73,4 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="AnimData|Aiming")
 	float AimPitch = 0.f;
-	
 };

@@ -35,6 +35,19 @@ public:
 	UFUNCTION(Server, Reliable)
 	void Server_DropEquippedWeapon();
 
+	UPROPERTY(ReplicatedUsing=OnRep_Aiming)
+	bool bAiming = false;
+
+	UFUNCTION()
+	void OnRep_Aiming();
+
+	UFUNCTION(Server, Reliable)
+	void Server_SetAiming(bool bNewAiming);
+
+	void SetAiming(bool bNewAiming);
+	
+	bool IsAiming() const { return bAiming; }
+
 	/** Inventory */
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category="SL|Combat")
 	TArray<TObjectPtr<ASLWeaponBase>> Inventory;

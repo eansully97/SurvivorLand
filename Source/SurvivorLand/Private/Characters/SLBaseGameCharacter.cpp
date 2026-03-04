@@ -56,10 +56,40 @@ void ASLBaseGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	InputHandlerComponent->InitializeInput(PC, EnhancedComp, InputConfig);
 }
 
+void ASLBaseGameCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	UpdateAimTarget(DeltaTime);
+}
+
+void ASLBaseGameCharacter::UpdateAimTarget(float DeltaSeconds)
+{
+	if (!IsLocallyControlled()) return;
+
+	FVector CamLoc;
+	FRotator CamRot;
+	Controller->GetPlayerViewPoint(CamLoc, CamRot);
+
+	const FVector Start = CamLoc;
+	const FVector End = Start + CamRot.Vector() * 100000.f;
+
+	FHitResult Hit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(AimTrace), false, this);
+
+	const bool bHit = GetWorld()->LineTraceSingleByChannel(
+		Hit, Start, End, ECC_Visibility, Params);
+
+	const FVector Target = bHit ? Hit.ImpactPoint : End;
+
+	AimTargetWorld = Target;
+	AimTargetWorldSmoothed = FMath::VInterpTo(AimTargetWorldSmoothed, Target, DeltaSeconds, 15.f);
+}
+
 void ASLBaseGameCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	// Bind Input
+	
+	// Bind Input to Combat Component
 	if (CombatComponent && InputHandlerComponent)
 	{
 		CombatComponent->BindToInput(InputHandlerComponent);
@@ -87,22 +117,28 @@ void ASLBaseGameCharacter::HandleAxis2D(FGameplayTag InputTag, FVector2D Value)
 	{
 		AddControllerYawInput(Value.X * LookSensitivity);
 		AddControllerPitchInput(Value.Y * LookSensitivity);
+		return;
 	}
 }
 
-bool ASLBaseGameCharacter::IsWeaponEquipped()
+bool ASLBaseGameCharacter::IsWeaponEquipped() const
 {
 	if (!CombatComponent) return false;
 	return (CombatComponent->GetEquippedWeapon() != nullptr);
 }
 
-ASLWeaponBase* ASLBaseGameCharacter::GetEquippedWeapon()
+ASLWeaponBase* ASLBaseGameCharacter::GetEquippedWeapon() const
 {
 	if (CombatComponent && !CombatComponent->Inventory.IsEmpty() && CombatComponent->Inventory[CombatComponent->EquippedIndex])
 	{
 		return CombatComponent->Inventory[CombatComponent->EquippedIndex];
 	}
 	return nullptr;
+}
+
+bool ASLBaseGameCharacter::IsAiming()
+{
+	return CombatComponent && CombatComponent->IsAiming();
 }
 
 void ASLBaseGameCharacter::HandleActionStarted(FGameplayTag InputTag)
@@ -113,9 +149,15 @@ void ASLBaseGameCharacter::HandleActionStarted(FGameplayTag InputTag)
 		return;
 	}
 
+	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Aim)
+	{
+		CombatComponent->SetAiming(true);
+		return;
+	}
+
 	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Fire)
 	{
-		UE_LOG(LogTemp, Log, TEXT("Survivor Fire pressed"));
+		// Gun->Fire
 	}
 }
 
@@ -124,5 +166,11 @@ void ASLBaseGameCharacter::HandleActionCompleted(FGameplayTag InputTag)
 	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Jump)
 	{
 		StopJumping();
+		return;
+	}
+	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Aim)
+	{
+		CombatComponent->SetAiming(false);
+		return;
 	}
 }

@@ -29,6 +29,7 @@ void USLCombatComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProper
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(USLCombatComponent, Inventory);
 	DOREPLIFETIME(USLCombatComponent, EquippedIndex);
+	DOREPLIFETIME(USLCombatComponent, bAiming);
 }
 
 void USLCombatComponent::BindToInput(USLInputHandlerComponent* InputHandler)
@@ -43,6 +44,31 @@ void USLCombatComponent::BindToInput(USLInputHandlerComponent* InputHandler)
 	InputHandler->OnAxis2D.AddDynamic(this, &USLCombatComponent::OnAxis2D);
 
 	bBoundToInput = true;
+}
+
+void USLCombatComponent::SetAiming(bool bNewAiming)
+{
+	// local prediction (optional but feels better)
+	if (bAiming == bNewAiming) return;
+	bAiming = bNewAiming;
+	OnRep_Aiming(); // update cosmetic immediately
+
+	if (GetOwnerRole() < ROLE_Authority)
+	{
+		Server_SetAiming(bNewAiming);
+	}
+}
+
+void USLCombatComponent::Server_SetAiming_Implementation(bool bNewAiming)
+{
+	bAiming = bNewAiming;
+	OnRep_Aiming(); // if you want server to run same cosmetic (usually fine)
+}
+
+void USLCombatComponent::OnRep_Aiming()
+{
+	// Don’t do heavy stuff here yet.
+	// If you later change walk speed/FOV/etc, do it here (owner-only checks as needed).
 }
 
 void USLCombatComponent::OnActionStarted(FGameplayTag InputTag)
@@ -63,6 +89,7 @@ void USLCombatComponent::OnActionStarted(FGameplayTag InputTag)
 		}
 		return;
 	}
+	
 
 	// Interact stays free, for now only pickup if unarmed
 	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Interact)
@@ -90,11 +117,30 @@ void USLCombatComponent::OnActionStarted(FGameplayTag InputTag)
 		}
 		return;
 	}
+
+	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Aim)
+	{
+		SetAiming(true);
+		return;
+	}
+
+	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Aim)
+	{
+		SetAiming(true);
+		return;
+	}
 }
 
 void USLCombatComponent::OnActionCompleted(FGameplayTag InputTag)
 {
-	// nothing yet
+	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Aim)
+	{
+		if (IsAiming())
+		{
+			bAiming = false;
+		}
+		return;
+	}
 }
 
 void USLCombatComponent::OnAxis2D(FGameplayTag InputTag, FVector2D Value)

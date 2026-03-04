@@ -3,6 +3,7 @@
 #include "KismetAnimationLibrary.h"
 #include "AnimInstances/SLBasePlayerAnimInstance.h"
 #include "Characters/SLBaseGameCharacter.h"
+#include "Components/SLCombatComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Items/Weapons/SLWeaponBase.h"
 
@@ -32,6 +33,9 @@ void USLBasePlayerAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSecon
 	ShouldMove = bHasAcceleration && GroundSpeed > 0.01f;
 	Direction = UKismetAnimationLibrary::CalculateDirection(Velocity,OwningCharacter->GetActorRotation());
 	bWeaponEquipped = OwningCharacter->IsWeaponEquipped();
+	AimTargetWorld = OwningCharacter->AimTargetWorldSmoothed;
+	bAiming = OwningCharacter->IsAiming();
+	
 	if (ASLWeaponBase* W = OwningCharacter->GetEquippedWeapon())
 	{
 		EquippedWeaponData = W->WeaponData;
@@ -41,11 +45,16 @@ void USLBasePlayerAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSecon
 		EquippedWeaponData = nullptr;
 	}
 
+	const bool bAim = OwningCharacter && OwningCharacter->CombatComponent
+	? OwningCharacter->CombatComponent->IsAiming()
+	: false;
+
+	ADSAlpha = FMath::FInterpTo(ADSAlpha, bAim ? 1.f : 0.f, DeltaSeconds, 12.f);
+
 	const FRotator ActorRot = OwningCharacter->GetActorRotation();
 	const FRotator ControlRot = OwningCharacter->GetControlRotation();
 	FRotator Delta = (ControlRot - ActorRot).GetNormalized();
 
 	AimYaw = FMath::Clamp(Delta.Yaw, -90.f, 90.f);
 	AimPitch = FMath::Clamp(Delta.Pitch, -60.f, 60.f);
-	
 }
