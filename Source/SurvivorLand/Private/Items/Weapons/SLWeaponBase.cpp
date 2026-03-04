@@ -78,20 +78,20 @@ void ASLWeaponBase::ServerGiveTo(ASLBaseGameCharacter* NewOwnerChar)
 
 	bIsHeld = true;
 
-	// Turn off physics while held
 	Mesh->SetSimulatePhysics(false);
 	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-
 	PickupSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
-	static const FName RightHandSocketName(TEXT("RightHandSocket"));
+	// Decide socket based on weapon grip/type
+	const FName AttachSocket = NewOwnerChar->GetWeaponAttachSocket(WeaponData->Grip);
+
 	AttachToComponent(
 		NewOwnerChar->GetMesh(),
 		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-		RightHandSocketName
+		AttachSocket
 	);
 
-	// Tell owning client about input
+	// Tell owning client about input / layers
 	if (USLCombatComponent* Combat = NewOwnerChar->FindComponentByClass<USLCombatComponent>())
 	{
 		Combat->Client_OnWeaponEquipped(WeaponData->WeaponMappingContext, WeaponData);

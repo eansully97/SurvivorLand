@@ -11,6 +11,13 @@ class UInputMappingContext;
 class USkeletalMesh;
 class UANimInstance;
 
+UENUM(BlueprintType)
+enum class ESLWeaponGrip : uint8
+{
+	Pistol UMETA(DisplayName="Pistol"),
+	Rifle UMETA(DisplayName="Rifle")
+};
+
 UCLASS(BlueprintType)
 class SURVIVORLAND_API USLWeaponDataAsset : public UDataAsset
 {
@@ -31,4 +38,7 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon|Input", meta=(TitleProperty="InputTag"))
 	TArray<FSurvivorLandTaggedInputAction> GrantedInputActions;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon")
+	ESLWeaponGrip Grip{};
 };

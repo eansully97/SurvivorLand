@@ -24,4 +24,5 @@ namespace SurvivorLandGameplayTags
 	// Item / Weapon Tags
 
 	UE_DEFINE_GAMEPLAY_TAG(Item_Weapon_Pistol, "Item.Weapon.Pistol");
+	UE_DEFINE_GAMEPLAY_TAG(Item_Weapon_Rifle, "Item.Weapon.Rifle");
 }

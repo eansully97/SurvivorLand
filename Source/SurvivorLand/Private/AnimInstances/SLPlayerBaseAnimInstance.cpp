@@ -49,7 +49,8 @@ void USLBasePlayerAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSecon
 	? OwningCharacter->CombatComponent->IsAiming()
 	: false;
 
-	ADSAlpha = FMath::FInterpTo(ADSAlpha, bAim ? 1.f : 0.f, DeltaSeconds, 12.f);
+	const float Speed = bAim ? 10.f : 14.f;
+	ADSAlpha = FMath::FInterpTo(ADSAlpha, bAim ? 1.f : 0.f, DeltaSeconds, Speed);
 
 	const FRotator ActorRot = OwningCharacter->GetActorRotation();
 	const FRotator ControlRot = OwningCharacter->GetControlRotation();

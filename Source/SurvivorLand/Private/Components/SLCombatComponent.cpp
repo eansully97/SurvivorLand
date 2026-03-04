@@ -67,8 +67,10 @@ void USLCombatComponent::Server_SetAiming_Implementation(bool bNewAiming)
 
 void USLCombatComponent::OnRep_Aiming()
 {
-	// Don’t do heavy stuff here yet.
-	// If you later change walk speed/FOV/etc, do it here (owner-only checks as needed).
+	ASLBaseGameCharacter* OwnerChar = Cast<ASLBaseGameCharacter>(GetOwner());
+	if (!OwnerChar) return;
+
+	OwnerChar->SetStrafeAimingMode(bAiming);
 }
 
 void USLCombatComponent::OnActionStarted(FGameplayTag InputTag)
@@ -123,22 +125,13 @@ void USLCombatComponent::OnActionStarted(FGameplayTag InputTag)
 		SetAiming(true);
 		return;
 	}
-
-	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Aim)
-	{
-		SetAiming(true);
-		return;
-	}
 }
 
 void USLCombatComponent::OnActionCompleted(FGameplayTag InputTag)
 {
 	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Aim)
 	{
-		if (IsAiming())
-		{
-			bAiming = false;
-		}
+		SetAiming(false);
 		return;
 	}
 }
@@ -235,14 +228,6 @@ void USLCombatComponent::DropEquippedWeapon_Internal()
 	}
 }
 
-void USLCombatComponent::SetEquippedOrientationSettings(ASLBaseGameCharacter* OwnerChar)
-{
-	OwnerChar->bUseControllerRotationYaw = true;
-	OwnerChar->GetCharacterMovement()->bOrientRotationToMovement = false;
-
-	// Camera usually DOES use pawn control rotation in third-person aiming
-	OwnerChar->CameraBoom->bUsePawnControlRotation = true;
-}
 
 void USLCombatComponent::Client_OnWeaponEquipped_Implementation(UInputMappingContext* WeaponContext, const USLWeaponDataAsset* WeaponData)
 {
@@ -251,10 +236,6 @@ void USLCombatComponent::Client_OnWeaponEquipped_Implementation(UInputMappingCon
 
 	APlayerController* PC = Cast<APlayerController>(OwnerChar->GetController());
 	if (!PC) return;
-
-	// Setup EquippedState
-
-	SetEquippedOrientationSettings(OwnerChar);
 
 	// Add mapping context locally
 	if (WeaponContext)
@@ -284,13 +265,6 @@ void USLCombatComponent::Client_OnWeaponEquipped_Implementation(UInputMappingCon
 	}
 }
 
-void USLCombatComponent::RevertCharacterOrientationSettings(ASLBaseGameCharacter* OwnerChar)
-{
-	OwnerChar->bUseControllerRotationYaw = false;
-	OwnerChar->GetCharacterMovement()->bOrientRotationToMovement = true;
-	OwnerChar->FollowCamera->bUsePawnControlRotation = false;
-}
-
 void USLCombatComponent::Client_OnWeaponUnequipped_Implementation()
 {
 	ASLBaseGameCharacter* OwnerChar = Cast<ASLBaseGameCharacter>(GetOwner());
@@ -310,8 +284,6 @@ void USLCombatComponent::Client_OnWeaponUnequipped_Implementation()
 			}
 		}
 	}
-
-	RevertCharacterOrientationSettings(OwnerChar);
 
 	UnequipWeaponContext(PC);
 }

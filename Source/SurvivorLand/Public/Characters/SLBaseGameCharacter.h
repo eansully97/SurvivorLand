@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "GameplayTagContainer.h"
+#include "Data/SLWeaponData.h"
 #include "SLBaseGameCharacter.generated.h"
 
 class ASLWeaponBase;
@@ -27,6 +28,9 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Category="SL|Aim")
 	FVector AimTargetWorldSmoothed = FVector::ZeroVector;
+
+	UFUNCTION(BlueprintCallable, Category="SL|Weapons")
+	FName GetWeaponAttachSocket(ESLWeaponGrip Grip) const;
 
 	
 #pragma region Inputs
@@ -64,8 +68,16 @@ protected:
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	virtual void Tick(float DeltaTime) override;
 
+private:
+	bool bCachedOrientToMovement = true;
+	bool bCachedUseControllerYaw = false;
+	float CachedRotationRateYaw = 540.f;
+	UPROPERTY(Transient)
+	bool bTurningInPlace = false;
 	
 public:
+
+	void SetStrafeAimingMode(bool bEnable);
 
 	// Handlers bound to the InputHandlerComponent delegates:
 	UFUNCTION()
@@ -84,8 +96,11 @@ public:
 	ASLWeaponBase* GetEquippedWeapon() const;
 
 	UFUNCTION(BlueprintPure)
-	bool IsAiming();
+	bool IsAiming() const;
+	
+	float GetAimYawOffset() const;
 
 	UFUNCTION()
 	void UpdateAimTarget(float DeltaSeconds);
+	void UpdateTurnInPlace(float DeltaSeconds);
 };

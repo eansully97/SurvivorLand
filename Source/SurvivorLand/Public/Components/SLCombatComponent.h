@@ -48,6 +48,8 @@ public:
 	
 	bool IsAiming() const { return bAiming; }
 
+	
+
 	/** Inventory */
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category="SL|Combat")
 	TArray<TObjectPtr<ASLWeaponBase>> Inventory;
@@ -73,8 +75,9 @@ private:
 	// Internal server logic
 	void TryPickupWeapon_Internal();
 	void DropEquippedWeapon_Internal();
-	void SetEquippedOrientationSettings(ASLBaseGameCharacter* OwnerChar);
-	void RevertCharacterOrientationSettings(ASLBaseGameCharacter* OwnerChar);
+	
+
+
 
 	// Input delegate handlers
 	UFUNCTION()
