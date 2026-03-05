@@ -13,80 +13,15 @@ ASLSurvivorCharacterBase::ASLSurvivorCharacterBase()
 	PrimaryActorTick.bCanEverTick = true;
 
 	SurvivorCombatComponent = CreateDefaultSubobject<USLSurvivorCombatComponent>(TEXT("CombatComponent"));
+
+	// Make base character routing see it as generic combat
+	CombatComponent = SurvivorCombatComponent;
 }
 
-FName ASLSurvivorCharacterBase::GetWeaponAttachSocket(ESLWeaponGrip Grip) const
+void ASLSurvivorCharacterBase::Tick(float DeltaTime)
 {
-	const UEnum* EnumPtr = StaticEnum<ESLWeaponGrip>();
-	if (!EnumPtr) return TEXT("RightHandSocket_Pistol");
-
-	const FString GripName = EnumPtr->GetNameStringByValue((int64)Grip);
-	const FName Socket(*FString::Printf(TEXT("RightHandSocket_%s"), *GripName));
-
-	return GetMesh() && GetMesh()->DoesSocketExist(Socket)
-		? Socket
-		: TEXT("RightHandSocket_Pistol");
-}
-
-bool ASLSurvivorCharacterBase::IsWeaponEquipped() const
-{
-	if (!SurvivorCombatComponent) return false;
-	return (SurvivorCombatComponent->GetEquippedWeapon() != nullptr);
-}
-
-
-ASLWeaponBase* ASLSurvivorCharacterBase::GetEquippedWeapon() const
-{
-	if (!SurvivorCombatComponent) return nullptr;
-
-	const int32 Index = SurvivorCombatComponent->GetEquippedIndex();
-	if (!SurvivorCombatComponent->GetInventory().IsValidIndex(Index)) return nullptr;
-
-	return SurvivorCombatComponent->GetInventory()[Index].Get();
-}
-
-USLSurvivorCombatComponent* ASLSurvivorCharacterBase::GetCombatComponent() const
-{
-	return SurvivorCombatComponent;
-}
-
-bool ASLSurvivorCharacterBase::IsAiming() const
-{
-	return SurvivorCombatComponent && SurvivorCombatComponent->IsAiming();
-}
-
-float ASLSurvivorCharacterBase::GetAimYawOffset() const
-{
-	if (!Controller) return 0.f;
-
-	const float ControlYaw = Controller->GetControlRotation().Yaw;
-	const float ActorYaw   = GetActorRotation().Yaw;
-
-	// normalized to [-180, 180]
-	return FRotator::NormalizeAxis(ControlYaw - ActorYaw);
-}
-
-void ASLSurvivorCharacterBase::UpdateAimTarget(float DeltaSeconds)
-{
-	if (!IsLocallyControlled()) return;
-
-	FVector CamLoc;
-	FRotator CamRot;
-	Controller->GetPlayerViewPoint(CamLoc, CamRot);
-
-	const FVector Start = CamLoc;
-	const FVector End = Start + CamRot.Vector() * 100000.f;
-
-	FHitResult Hit;
-	FCollisionQueryParams Params(SCENE_QUERY_STAT(AimTrace), false, this);
-
-	const bool bHit = GetWorld()->LineTraceSingleByChannel(
-		Hit, Start, End, ECC_Visibility, Params);
-
-	const FVector Target = bHit ? Hit.ImpactPoint : End;
-
-	AimTargetWorld = Target;
-	AimTargetWorldSmoothed = FMath::VInterpTo(AimTargetWorldSmoothed, Target, DeltaSeconds, 15.f);
+	Super::Tick(DeltaTime);
+	UpdateTurnInPlace(DeltaTime);
 }
 
 void ASLSurvivorCharacterBase::UpdateTurnInPlace(float DeltaSeconds)
@@ -119,7 +54,40 @@ void ASLSurvivorCharacterBase::UpdateTurnInPlace(float DeltaSeconds)
 	SetActorRotation(FRotator(0.f, NewYaw, 0.f));
 }
 
-void ASLSurvivorCharacterBase::SetStrafeAimingMode(bool bEnable)
+FName ASLSurvivorCharacterBase::GetWeaponAttachSocket(ESLWeaponGrip Grip) const
+{
+	const UEnum* EnumPtr = StaticEnum<ESLWeaponGrip>();
+	if (!EnumPtr) return TEXT("RightHandSocket_Pistol");
+
+	const FString GripName = EnumPtr->GetNameStringByValue((int64)Grip);
+	const FName Socket(*FString::Printf(TEXT("RightHandSocket_%s"), *GripName));
+
+	return GetMesh() && GetMesh()->DoesSocketExist(Socket)
+		? Socket
+		: TEXT("RightHandSocket_Pistol");
+}
+
+bool ASLSurvivorCharacterBase::IsWeaponEquipped() const
+{
+	return SurvivorCombatComponent && SurvivorCombatComponent->GetEquippedWeapon() != nullptr;
+}
+
+ASLWeaponBase* ASLSurvivorCharacterBase::GetEquippedWeapon() const
+{
+	return SurvivorCombatComponent ? SurvivorCombatComponent->GetEquippedWeapon() : nullptr;
+}
+
+USLSurvivorCombatComponent* ASLSurvivorCharacterBase::GetSurvivorCombatComponent() const
+{
+	return SurvivorCombatComponent;
+}
+
+bool ASLSurvivorCharacterBase::IsAiming() const
+{
+	return SurvivorCombatComponent && SurvivorCombatComponent->IsAiming();
+}
+
+void ASLSurvivorCharacterBase::OnAimingChanged(bool bEnable)
 {
 	UCharacterMovementComponent* Move = GetCharacterMovement();
 	if (!Move) return;
@@ -143,42 +111,4 @@ void ASLSurvivorCharacterBase::SetStrafeAimingMode(bool bEnable)
 		bUseControllerRotationYaw = bCachedUseControllerYaw;
 		Move->RotationRate.Yaw = CachedRotationRateYaw;
 	}
-}
-
-
-void ASLSurvivorCharacterBase::HandleAxis2D(FGameplayTag InputTag, FVector2D Value)
-{
-	Super::HandleAxis2D(InputTag, Value);
-}
-
-void ASLSurvivorCharacterBase::HandleActionStarted(FGameplayTag InputTag)
-{
-	Super::HandleActionStarted(InputTag);
-	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Interact) SurvivorCombatComponent->TryPickupWeapon();
-	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Aim) SurvivorCombatComponent->SetAiming(true);
-	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Fire) SurvivorCombatComponent->FirePressed();
-	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Drop) SurvivorCombatComponent->DropEquippedWeapon();
-}
-
-void ASLSurvivorCharacterBase::HandleActionCompleted(FGameplayTag InputTag)
-{
-	Super::HandleActionCompleted(InputTag);
-	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Aim) SurvivorCombatComponent->SetAiming(false);
-}
-
-void ASLSurvivorCharacterBase::BeginPlay()
-{
-	Super::BeginPlay();
-}
-
-void ASLSurvivorCharacterBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
-}
-
-void ASLSurvivorCharacterBase::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-	UpdateAimTarget(DeltaTime);
-	UpdateTurnInPlace(DeltaTime);
 }

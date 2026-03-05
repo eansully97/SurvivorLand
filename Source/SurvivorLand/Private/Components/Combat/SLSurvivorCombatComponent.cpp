@@ -1,8 +1,5 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
-
-#include "Components/Combat/SLSurvivorCombatComponent.h"
-
 #include "Net/UnrealNetwork.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -113,13 +110,13 @@ void USLSurvivorCombatComponent::DropEquippedWeapon_Internal()
 		ASLWeaponBase* NewEquipped = GetEquippedWeapon();
 		if (NewEquipped && NewEquipped->GetWeaponData())
 		{
-			Client_OnWeaponEquipped(NewEquipped->GetWeaponData()->InputProfile->MappingContext, NewEquipped->GetWeaponData());
+			Client_OnWeaponEquipped(NewEquipped->GetWeaponData());
 		}
 	}
 }
 
 
-void USLSurvivorCombatComponent::Client_OnWeaponEquipped_Implementation(UInputMappingContext* /*WeaponContext*/, const USLWeaponDataAsset* WeaponData)
+void USLSurvivorCombatComponent::Client_OnWeaponEquipped_Implementation(const USLWeaponDataAsset* WeaponData)
 {
 	ASLBaseGameCharacter* OwnerChar = Cast<ASLBaseGameCharacter>(GetOwner());
 	if (!OwnerChar || !WeaponData) return;
@@ -135,11 +132,11 @@ void USLSurvivorCombatComponent::Client_OnWeaponEquipped_Implementation(UInputMa
 			EquipWeaponContext(PC, WeaponData->InputProfile->MappingContext, 1);
 		}
 
-		if (OwnerChar->InputHandlerComponent)
+		if (OwnerChar->GetInputHandlerComponent())
 		{
 			if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(OwnerChar->InputComponent))
 			{
-				OwnerChar->InputHandlerComponent->BindAdditionalActions(
+				OwnerChar->GetInputHandlerComponent()->BindAdditionalActions(
 					EIC,
 					WeaponData->InputProfile->GrantedInputActions
 				);
@@ -183,30 +180,11 @@ void USLSurvivorCombatComponent::Client_OnWeaponUnequipped_Implementation()
 	UnequipWeaponContext(PC);
 }
 
-void USLSurvivorCombatComponent::SetAiming(bool bNewAiming)
-{
-	// local prediction (optional but feels better)
-	if (bAiming == bNewAiming) return;
-	bAiming = bNewAiming;
-	OnRep_Aiming(); // update cosmetic immediately
-
-	if (GetOwnerRole() < ROLE_Authority)
-	{
-		Server_SetAiming(bNewAiming);
-	}
-}
-
-void USLSurvivorCombatComponent::Server_SetAiming_Implementation(bool bNewAiming)
-{
-	bAiming = bNewAiming;
-	OnRep_Aiming(); // if you want server to run same cosmetic (usually fine)
-}
-
 void USLSurvivorCombatComponent::FirePressed()
 {
 	if (!bAiming) return;
 	
-	ASLSurvivorCharacterBase* OwnerChar = Cast<ASLSurvivorCharacterBase>(GetOwner());
+	ASLBaseGameCharacter* OwnerChar = Cast<ASLBaseGameCharacter>(GetOwner());
 	if (!OwnerChar) return;
 
 	ASLWeaponBase* Weapon = GetEquippedWeapon();
@@ -362,21 +340,26 @@ void USLSurvivorCombatComponent::ResolvePenetrationAndDamage(const ASLWeaponBase
 
 void USLSurvivorCombatComponent::DropEquippedWeapon()
 {
-	Server_DropEquippedWeapon();
+	if (GetOwner() && GetOwner()->HasAuthority())
+	{
+		DropEquippedWeapon_Internal();
+	}
+	else
+	{
+		Server_DropEquippedWeapon();
+	}
 }
 
 void USLSurvivorCombatComponent::TryPickupWeapon()
 {
-	Server_TryPickupWeapon();
-}
-
-
-void USLSurvivorCombatComponent::OnRep_Aiming()
-{
-	ASLSurvivorCharacterBase* OwnerChar = Cast<ASLSurvivorCharacterBase>(GetOwner());
-	if (!OwnerChar) return;
-
-	OwnerChar->SetStrafeAimingMode(bAiming);
+	if (GetOwner() && GetOwner()->HasAuthority())
+	{
+		TryPickupWeapon_Internal();
+	}
+	else
+	{
+		Server_TryPickupWeapon();
+	}
 }
 
 void USLSurvivorCombatComponent::EquipWeaponContext(APlayerController* PC, UInputMappingContext* WeaponContext, int32 Priority)
@@ -411,6 +394,41 @@ void USLSurvivorCombatComponent::UnequipWeaponContext(APlayerController* PC)
 			Subsystem->RemoveMappingContext(EquippedWeaponContext);
 		}
 	}
-
 	EquippedWeaponContext = nullptr;
+}
+
+void USLSurvivorCombatComponent::HandleActionStarted(FGameplayTag InputTag)
+{
+	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Interact)
+	{
+		TryPickupWeapon();
+		return;
+	}
+
+	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Aim)
+	{
+		SetAiming(true);
+		return;
+	}
+
+	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Fire)
+	{
+		FirePressed();
+		return;
+	}
+
+	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Drop)
+	{
+		DropEquippedWeapon();
+		return;
+	}
+}
+
+void USLSurvivorCombatComponent::HandleActionCompleted(FGameplayTag InputTag)
+{
+	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Aim)
+	{
+		SetAiming(false);
+		return;
+	}
 }

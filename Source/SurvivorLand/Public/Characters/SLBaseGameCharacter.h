@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "GameplayTagContainer.h"
+#include "Data/Weapon/SLWeaponData.h"
 #include "SLBaseGameCharacter.generated.h"
 
 class ASLWeaponBase;
@@ -45,21 +46,29 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="SL|Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USLInputHandlerComponent> InputHandlerComponent;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="SL|Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USLCombatComponent> CombatComponent{nullptr};
 
 #pragma endregion
+	
+
 
 protected:
-	
 	virtual void BeginPlay() override;
-	void BindToInput(USLInputHandlerComponent* InputHandler);
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+	virtual void Tick(float DeltaTime) override;
 
+	void UpdateAimTarget(float DeltaSeconds);
+
+	UPROPERTY()
+	FVector AimTargetWorld = FVector::ZeroVector;
+
+	UPROPERTY()
+	FVector AimTargetWorldSmoothed = FVector::ZeroVector;
+
+	bool bInputDelegatesBound = false;
 	
 public:
-
-
-	// Handlers bound to the InputHandlerComponent delegates:
-	bool bInputBound = false;
 	
 	UFUNCTION()
 	virtual void HandleAxis2D(FGameplayTag InputTag, FVector2D Value);
@@ -69,4 +78,20 @@ public:
 
 	UFUNCTION()
 	virtual void HandleActionCompleted(FGameplayTag InputTag);
+
+	virtual void OnAimingChanged(bool bEnable){}
+
+	UFUNCTION(BlueprintPure)
+	virtual FVector GetAimTargetWorld() const { return AimTargetWorld; }
+
+	UFUNCTION(BlueprintPure)
+	float GetAimYawOffset() const;
+
+	UFUNCTION(BlueprintPure)
+	virtual bool IsAiming() const { return false; }
+
+	UFUNCTION(BlueprintPure)
+	FVector GetAimTargetWorldSmoothed() const { return AimTargetWorldSmoothed; }
+
+	virtual TObjectPtr<USLInputHandlerComponent> GetInputHandlerComponent() const { return InputHandlerComponent; }
 };

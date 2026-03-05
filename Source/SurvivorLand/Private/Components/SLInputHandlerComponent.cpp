@@ -13,11 +13,13 @@ USLInputHandlerComponent::USLInputHandlerComponent()
 
 void USLInputHandlerComponent::InitializeInput(APlayerController* PC, UEnhancedInputComponent* EnhancedInputComp, const UDataAsset_InputConfig* InputConfig)
 {
-	if (bInitialized)
+	if (BoundInputComponent == EnhancedInputComp && BoundInputConfig == InputConfig)
 	{
 		return;
 	}
-
+	BoundInputComponent = EnhancedInputComp;
+	BoundInputConfig = InputConfig;
+	
 	if (!PC || !EnhancedInputComp || !InputConfig)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("InputHandlerComponent::InitializeInput missing PC/InputComp/InputConfig."));
@@ -29,10 +31,12 @@ void USLInputHandlerComponent::InitializeInput(APlayerController* PC, UEnhancedI
 	// Bind everything in the config
 	for (const FSurvivorLandTaggedInputAction& Entry : InputConfig->TaggedInputActions)
 	{
-		if (!Entry.IsValid())
+		if (BoundActions.Contains(Entry.InputAction))
 		{
 			continue;
 		}
+		BoundActions.Add(Entry.InputAction);
+		
 
 		if (Entry.ValueType == EInputActionValueType::Axis2D)
 		{

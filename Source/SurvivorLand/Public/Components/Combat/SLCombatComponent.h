@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "SurvivorLandGameplayTags.h"
 #include "SLCombatComponent.generated.h"
 
 
@@ -16,5 +17,26 @@ class SURVIVORLAND_API USLCombatComponent : public UActorComponent
 
 public:
 	USLCombatComponent();
+
+	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
+
+	virtual void HandleActionStarted(FGameplayTag InputTag){}
+	virtual void HandleActionCompleted(FGameplayTag InputTag){}
+
+	UFUNCTION(Server, Reliable)
+	void Server_SetAiming(bool bNewAiming);
+	void SetAiming(bool bNewAiming);
+
+	UPROPERTY(ReplicatedUsing=OnRep_Aiming)
+	bool bAiming = false;
+
+protected:
+	virtual void BeginPlay() override;
+
+	UFUNCTION()
+	void OnRep_Aiming();
+
+	UPROPERTY()
+	TObjectPtr<ASLBaseGameCharacter> OwningCharacter;
 	
 };

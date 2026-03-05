@@ -3,10 +3,13 @@
 
 #include "Public/Characters/SLMonsterCharacter.h"
 
+#include "Components/Combat/SLMonsterCombatComponent.h"
+
 
 ASLMonsterCharacter::ASLMonsterCharacter()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	MonsterCombatComponent = CreateDefaultSubobject<USLMonsterCombatComponent>(TEXT("CombatComponent"));
+	CombatComponent = MonsterCombatComponent;
 }
 
 void ASLMonsterCharacter::BeginPlay()

@@ -93,6 +93,7 @@ void ASLWeaponBase::ServerGiveTo(const ASLSurvivorCharacterBase* NewOwnerChar)
 	PickupSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	// Decide socket based on weapon grip/type
+	
 	const FName AttachSocket = NewOwnerChar->GetWeaponAttachSocket(WeaponData->Grip);
 
 	AttachToComponent(
@@ -103,7 +104,7 @@ void ASLWeaponBase::ServerGiveTo(const ASLSurvivorCharacterBase* NewOwnerChar)
 
 	if (USLSurvivorCombatComponent* Combat = NewOwnerChar->FindComponentByClass<USLSurvivorCombatComponent>())
 	{
-		Combat->Client_OnWeaponEquipped(nullptr, WeaponData);
+		Combat->Client_OnWeaponEquipped(WeaponData);
 	}
 }
 

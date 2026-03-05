@@ -7,6 +7,8 @@
 #include "Components/SLInputHandlerComponent.h"
 #include "SurvivorLandGameplayTags.h" // your native tags namespace
 #include "Camera/CameraComponent.h"
+#include "Components/Combat/SLCombatComponent.h"
+#include "Components/Combat/SLSurvivorCombatComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 
@@ -44,32 +46,59 @@ void ASLBaseGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	{
 		return;
 	}
-
-	// Subscribe to events
-	InputHandlerComponent->OnAxis2D.AddDynamic(this, &ASLBaseGameCharacter::HandleAxis2D);
-	InputHandlerComponent->OnActionStarted.AddDynamic(this, &ASLBaseGameCharacter::HandleActionStarted);
-	InputHandlerComponent->OnActionCompleted.AddDynamic(this, &ASLBaseGameCharacter::HandleActionCompleted);
-
-	// Initialize bindings
-	InputHandlerComponent->InitializeInput(PC, EnhancedComp, InputConfig);
+	if (!bInputDelegatesBound)
+	{
+		InputHandlerComponent->OnAxis2D.AddDynamic(this, &ASLBaseGameCharacter::HandleAxis2D);
+		InputHandlerComponent->OnActionStarted.AddDynamic(this, &ASLBaseGameCharacter::HandleActionStarted);
+		InputHandlerComponent->OnActionCompleted.AddDynamic(this, &ASLBaseGameCharacter::HandleActionCompleted);
+		InputHandlerComponent->InitializeInput(PC, EnhancedComp, InputConfig);
+		bInputDelegatesBound = true;
+	}
 }
 
+void ASLBaseGameCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	UpdateAimTarget(DeltaTime);
+}
 
 void ASLBaseGameCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-
 }
 
-void ASLBaseGameCharacter::BindToInput(USLInputHandlerComponent* InputHandler)
+void ASLBaseGameCharacter::UpdateAimTarget(float DeltaSeconds)
 {
-	if (!InputHandler || bInputBound) return;
+	if (!IsLocallyControlled()) return;
 
-	InputHandler->OnActionStarted.AddDynamic(this, &ThisClass::HandleActionStarted);
-	InputHandler->OnActionCompleted.AddDynamic(this, &ThisClass::HandleActionCompleted);
-	InputHandler->OnAxis2D.AddDynamic(this, &ThisClass::HandleAxis2D);
+	FVector CamLoc;
+	FRotator CamRot;
+	Controller->GetPlayerViewPoint(CamLoc, CamRot);
 
-	bInputBound = true;
+	const FVector Start = CamLoc;
+	const FVector End = Start + CamRot.Vector() * 100000.f;
+
+	FHitResult Hit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(AimTrace), false, this);
+
+	const bool bHit = GetWorld()->LineTraceSingleByChannel(
+		Hit, Start, End, ECC_Visibility, Params);
+
+	const FVector Target = bHit ? Hit.ImpactPoint : End;
+
+	AimTargetWorld = Target;
+	AimTargetWorldSmoothed = FMath::VInterpTo(AimTargetWorldSmoothed, Target, DeltaSeconds, 15.f);
+}
+
+float ASLBaseGameCharacter::GetAimYawOffset() const
+{
+	if (!Controller) return 0.f;
+
+	const float ControlYaw = Controller->GetControlRotation().Yaw;
+	const float ActorYaw   = GetActorRotation().Yaw;
+
+	// normalized to [-180, 180]
+	return FRotator::NormalizeAxis(ControlYaw - ActorYaw);
 }
 
 void ASLBaseGameCharacter::HandleAxis2D(FGameplayTag InputTag, FVector2D Value)
@@ -99,10 +128,29 @@ void ASLBaseGameCharacter::HandleAxis2D(FGameplayTag InputTag, FVector2D Value)
 
 void ASLBaseGameCharacter::HandleActionStarted(FGameplayTag InputTag)
 {
-	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Jump) Jump();
+	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Jump)
+	{
+		Jump();
+		return;
+	}
+
+	// Forward everything else to combat (if present)
+	if (CombatComponent)
+	{
+		CombatComponent->HandleActionStarted(InputTag);
+	}
 }
 
 void ASLBaseGameCharacter::HandleActionCompleted(FGameplayTag InputTag)
 {
-	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Jump) StopJumping();
+	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Jump)
+	{
+		StopJumping();
+		return;
+	}
+
+	if (CombatComponent)
+	{
+		CombatComponent->HandleActionCompleted(InputTag);
+	}
 }

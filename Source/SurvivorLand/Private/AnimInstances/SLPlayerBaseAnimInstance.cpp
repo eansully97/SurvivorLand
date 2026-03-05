@@ -46,8 +46,8 @@ void USLBasePlayerAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSecon
 		EquippedWeaponData = nullptr;
 	}
 
-	const bool bAim = OwningCharacter && OwningCharacter->GetCombatComponent()
-	? OwningCharacter->GetCombatComponent()->IsAiming()
+	const bool bAim = OwningCharacter && OwningCharacter->GetSurvivorCombatComponent()
+	? OwningCharacter->GetSurvivorCombatComponent()->IsAiming()
 	: false;
 
 	const float Speed = bAim ? 10.f : 14.f;

@@ -39,6 +39,13 @@ public:
 	void BindAdditionalActions(UEnhancedInputComponent* EnhancedInputComp, const TArray<FSurvivorLandTaggedInputAction>& ActionsToBind);
 
 private:
+	UPROPERTY()
+	TObjectPtr<UEnhancedInputComponent> BoundInputComponent{nullptr};
+	UPROPERTY()
+	TObjectPtr<const UDataAsset_InputConfig> BoundInputConfig;
+	UPROPERTY()
+	TSet<TObjectPtr<const UInputAction>> BoundActions;
+	
 	// Internal handlers bound to Enhanced Input
 	void HandleActionStarted(FGameplayTag InputTag);
 	void HandleActionCompleted(FGameplayTag InputTag);

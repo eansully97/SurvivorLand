@@ -34,19 +34,13 @@ public:
 	void Server_Fire(const FVector_NetQuantize& AimPoint);
 	void FirePressed();
 
-	UFUNCTION(Server, Reliable)
-	void Server_SetAiming(bool bNewAiming);
-	void SetAiming(bool bNewAiming);
-
 	UFUNCTION(Client, Reliable)
-	void Client_OnWeaponEquipped(UInputMappingContext* WeaponContext, const USLWeaponDataAsset* WeaponData);
+	void Client_OnWeaponEquipped(const USLWeaponDataAsset* WeaponData);
 	
 	UFUNCTION(Client, Reliable)
 	void Client_OnWeaponUnequipped();
 
 protected:
-
-	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	
 	void PerformBallisticsTrace(const ASLWeaponBase* Weapon, const FVector& AimPoint, TArray<FHitResult>& OutHits) const;
 	void ResolvePenetrationAndDamage(const ASLWeaponBase* Weapon, const TArray<FHitResult>& Hits, const FVector& TraceStart) const;
@@ -58,9 +52,6 @@ protected:
 	// Input mapping helpers (client-side)
 	void EquipWeaponContext(APlayerController* PC, UInputMappingContext* WeaponContext, int32 Priority = 1);
 	void UnequipWeaponContext(APlayerController* PC);
-	
-	UFUNCTION()
-	void OnRep_Aiming();
 
 private:
 
@@ -69,16 +60,13 @@ private:
 
 	UPROPERTY(Replicated, VisibleAnywhere, Category="SL|Combat")
 	int32 EquippedIndex = INDEX_NONE;
-
-	UPROPERTY(ReplicatedUsing=OnRep_Aiming)
-	bool bAiming = false;
-
+	
 	UPROPERTY()
 	TObjectPtr<UInputMappingContext> EquippedWeaponContext = nullptr;
-
-	bool bBoundToInput = false;
 	
 public:
+	virtual void HandleActionStarted(FGameplayTag InputTag) override;
+	virtual void HandleActionCompleted(FGameplayTag InputTag) override;
 	
 	// Getters
 	UFUNCTION(BlueprintPure)
