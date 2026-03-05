@@ -3,14 +3,14 @@
 #include "KismetAnimationLibrary.h"
 #include "AnimInstances/SLBasePlayerAnimInstance.h"
 #include "Characters/SLBaseGameCharacter.h"
-#include "Components/SLCombatComponent.h"
-#include "Engine/SkeletalMeshSocket.h"
+#include "Characters/SLSurvivorCharacterBase.h"
+#include "Components/Combat/SLSurvivorCombatComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Items/Weapons/SLWeaponBase.h"
 
 void USLBasePlayerAnimInstance::NativeInitializeAnimation()
 {
-	OwningCharacter = Cast<ASLBaseGameCharacter>(TryGetPawnOwner());
+	OwningCharacter = Cast<ASLSurvivorCharacterBase>(TryGetPawnOwner());
 	
 	if (OwningCharacter)
 	{
@@ -34,20 +34,20 @@ void USLBasePlayerAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSecon
 	ShouldMove = bHasAcceleration && GroundSpeed > 0.01f;
 	Direction = UKismetAnimationLibrary::CalculateDirection(Velocity,OwningCharacter->GetActorRotation());
 	bWeaponEquipped = OwningCharacter->IsWeaponEquipped();
-	AimTargetWorld = OwningCharacter->AimTargetWorldSmoothed;
+	AimTargetWorld = OwningCharacter->GetAimTargetWorldSmoothed();
 	bAiming = OwningCharacter->IsAiming();
 	
 	if (ASLWeaponBase* W = OwningCharacter->GetEquippedWeapon())
 	{
-		EquippedWeaponData = W->WeaponData;
+		EquippedWeaponData = W->GetWeaponData();
 	}
 	else
 	{
 		EquippedWeaponData = nullptr;
 	}
 
-	const bool bAim = OwningCharacter && OwningCharacter->CombatComponent
-	? OwningCharacter->CombatComponent->IsAiming()
+	const bool bAim = OwningCharacter && OwningCharacter->GetCombatComponent()
+	? OwningCharacter->GetCombatComponent()->IsAiming()
 	: false;
 
 	const float Speed = bAim ? 10.f : 14.f;
@@ -62,6 +62,6 @@ void USLBasePlayerAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSecon
 
 	if (OwningCharacter && OwningCharacter->GetEquippedWeapon())
 	{
-		LeftHandTransform = OwningCharacter->GetEquippedWeapon()->Mesh->GetSocketTransform("IK_LeftHand", RTS_World);
+		LeftHandTransform = OwningCharacter->GetEquippedWeapon()->GetWeaponMesh()->GetSocketTransform("IK_LeftHand", RTS_World);
 	}
 }

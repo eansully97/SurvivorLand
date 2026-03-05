@@ -7,6 +7,7 @@
 #include "Data/Weapon/SLWeaponData.h"
 #include "SLBasePlayerAnimInstance.generated.h"
 
+class ASLSurvivorCharacterBase;
 class ASLBaseGameCharacter;
 class UCharacterMovementComponent;
 /**
@@ -27,10 +28,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="AnimData|WeaponAim")
 	FVector AimTargetWorld = FVector::ZeroVector;
 
-
 protected:
 	UPROPERTY(BlueprintReadOnly)
-	ASLBaseGameCharacter* OwningCharacter;
+	ASLSurvivorCharacterBase* OwningCharacter;
 
 	UPROPERTY()
 	UCharacterMovementComponent* OwningMovementComponent;

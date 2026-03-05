@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Data/Weapon/SLWeaponData.h"
 #include "GameFramework/Actor.h"
 #include "SLWeaponBase.generated.h"
 
@@ -18,43 +19,48 @@ class SURVIVORLAND_API ASLWeaponBase : public AActor
 
 public:
 	ASLWeaponBase();
-	FName GetMuzzleSocketName() const;
-	FTransform GetMuzzleTransform() const;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Weapon")
-	TObjectPtr<USphereComponent> PickupSphere;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Weapon")
-	TObjectPtr<USkeletalMeshComponent> Mesh;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon")
-	TObjectPtr<USLWeaponDataAsset> WeaponData;
 
 	UFUNCTION()
-	void ServerGiveTo(class ASLBaseGameCharacter* NewOwnerChar);
+	void ServerGiveTo(const class ASLSurvivorCharacterBase* NewOwnerChar);
 
-	UFUNCTION(BlueprintCallable)
-	USkeletalMeshComponent* GetWeaponMesh() const;
-
-	/** Server: Drop weapon into world (detach, enable pickup, enable physics). */
+	UFUNCTION()
 	void ServerDropFromOwner(const FVector& WorldLocation, const FVector& Impulse = FVector::ZeroVector);
-
-	/** True when weapon is currently held/equipped (server authoritative, replicated). */
-	UFUNCTION(BlueprintCallable, Category="Weapon")
-	bool IsHeld() const { return bIsHeld; }
-
+	
 protected:
-	virtual void OnConstruction(const FTransform& Transform) override;
 
+	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-private:
-	void ApplyVisualFromDataAsset();
-
+	void ApplyVisualFromDataAsset() const;
 	void SetPickupEnabled(bool bEnabled);
-	void SetPhysicsEnabled(bool bEnabled);
+	void SetPhysicsEnabled(bool bEnabled) const;
 
-	/** Replicated state to prevent double-pickup and support clients. */
+private:
+
+	UPROPERTY(VisibleAnywhere, Category="Weapon")
+	TObjectPtr<USphereComponent> PickupSphere;
+
+	UPROPERTY(VisibleAnywhere, Category="Weapon")
+	TObjectPtr<USkeletalMeshComponent> Mesh;
+
+	UPROPERTY(EditDefaultsOnly, Category="Weapon")
+	TObjectPtr<USLWeaponDataAsset> WeaponData;
+	
 	UPROPERTY(Replicated)
 	bool bIsHeld = false;
+
+public:
+	
+	// Getters
+	UFUNCTION(BlueprintPure)
+	FTransform GetMuzzleTransform() const;
+
+	UFUNCTION(BlueprintPure)
+	USkeletalMeshComponent* GetWeaponMesh() const {return Mesh;}
+	
+	// Inline Getters
+	FORCEINLINE FName GetMuzzleSocketName() const {return WeaponData ? WeaponData->Ballistics.MuzzleSocketName : TEXT("Muzzle");}
+	FORCEINLINE bool IsHeld() const {return bIsHeld;}
+	FORCEINLINE USphereComponent* GetSphereComponent() const {return PickupSphere;}
+	FORCEINLINE USLWeaponDataAsset* GetWeaponData() const {return WeaponData;}
 };

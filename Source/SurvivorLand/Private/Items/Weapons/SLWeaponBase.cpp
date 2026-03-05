@@ -6,22 +6,23 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "Characters/SLBaseGameCharacter.h"
-#include "Components/SLCombatComponent.h"
+#include "Characters/SLSurvivorCharacterBase.h"
+#include "Components/Combat/SLCombatComponent.h"
+#include "Components/Combat/SLSurvivorCombatComponent.h"
 #include "Data/Weapon/SLWeaponData.h"
 #include "Data/Weapon/SLWeaponInputProfile.h"
 
 ASLWeaponBase::ASLWeaponBase()
 {
 	bReplicates = true;
-	SetReplicateMovement(true);
+	AActor::SetReplicateMovement(true);
 
 	Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Mesh"));
 	SetRootComponent(Mesh);
-
-	// World/default state: should NOT float
+	
 	Mesh->SetSimulatePhysics(true);
-	Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	Mesh->SetCollisionProfileName(TEXT("PhysicsActor")); // good default for dropped items
+	Mesh->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
+	Mesh->SetCollisionProfileName(TEXT("PhysicsActor"));
 
 	PickupSphere = CreateDefaultSubobject<USphereComponent>(TEXT("PickupSphere"));
 	PickupSphere->SetupAttachment(Mesh);
@@ -37,7 +38,7 @@ void ASLWeaponBase::OnConstruction(const FTransform& Transform)
 	ApplyVisualFromDataAsset();
 }
 
-void ASLWeaponBase::ApplyVisualFromDataAsset()
+void ASLWeaponBase::ApplyVisualFromDataAsset() const
 {
 	if (WeaponData && WeaponData->WeaponMesh)
 	{
@@ -47,11 +48,6 @@ void ASLWeaponBase::ApplyVisualFromDataAsset()
 	{
 		Mesh->SetSkeletalMesh(nullptr);
 	}
-}
-
-FName ASLWeaponBase::GetMuzzleSocketName() const
-{
-	return (WeaponData) ? WeaponData->Ballistics.MuzzleSocketName : TEXT("Muzzle");
 }
 
 FTransform ASLWeaponBase::GetMuzzleTransform() const
@@ -73,21 +69,17 @@ void ASLWeaponBase::SetPickupEnabled(bool bEnabled)
 
 	PickupSphere->SetCollisionEnabled(bEnabled ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
 	SetActorEnableCollision(bEnabled);
-	SetActorHiddenInGame(false); // keep visible unless you specifically hide elsewhere
 }
 
-void ASLWeaponBase::SetPhysicsEnabled(bool bEnabled)
+void ASLWeaponBase::SetPhysicsEnabled(const bool bEnabled) const
 {
 	if (!Mesh) return;
 
 	Mesh->SetSimulatePhysics(bEnabled);
-
-	// Physics requires QueryAndPhysics (or PhysicsOnly) and a valid collision profile.
-	// QueryAndPhysics is friendlier if you want overlaps/traces later.
 	Mesh->SetCollisionEnabled(bEnabled ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
 }
 
-void ASLWeaponBase::ServerGiveTo(ASLBaseGameCharacter* NewOwnerChar)
+void ASLWeaponBase::ServerGiveTo(const ASLSurvivorCharacterBase* NewOwnerChar)
 {
 	if (!HasAuthority() || !NewOwnerChar || !WeaponData || bIsHeld)
 	{
@@ -109,15 +101,10 @@ void ASLWeaponBase::ServerGiveTo(ASLBaseGameCharacter* NewOwnerChar)
 		AttachSocket
 	);
 
-	if (USLCombatComponent* Combat = NewOwnerChar->FindComponentByClass<USLCombatComponent>())
+	if (USLSurvivorCombatComponent* Combat = NewOwnerChar->FindComponentByClass<USLSurvivorCombatComponent>())
 	{
 		Combat->Client_OnWeaponEquipped(nullptr, WeaponData);
 	}
-}
-
-USkeletalMeshComponent* ASLWeaponBase::GetWeaponMesh() const
-{
-	return Mesh;
 }
 
 void ASLWeaponBase::ServerDropFromOwner(const FVector& WorldLocation, const FVector& Impulse)
@@ -133,10 +120,8 @@ void ASLWeaponBase::ServerDropFromOwner(const FVector& WorldLocation, const FVec
 	SetActorLocation(WorldLocation);
 
 	// Re-enable pickup + physics
-	PickupSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-
-	Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	Mesh->SetSimulatePhysics(true);
+	SetPhysicsEnabled(true);
+	SetPickupEnabled(true);
 
 	if (!Impulse.IsNearlyZero())
 	{
