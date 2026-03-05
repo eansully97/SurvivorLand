@@ -32,7 +32,10 @@ public:
 	UFUNCTION(Server, Reliable)
 	void Server_DropEquippedWeapon();
 	
-	void FireEquippedWeapon();
+	void FirePressed();
+	UFUNCTION(Server, Reliable)
+	void Server_Fire(const FVector_NetQuantize& AimPoint);
+	
 	void DropEquippedWeapon();
 	void TryInteract();
 
@@ -71,6 +74,9 @@ public:
 	void Client_OnWeaponUnequipped();
 
 private:
+
+	void PerformBallisticsTrace(const ASLWeaponBase* Weapon, const FVector& AimPoint, TArray<FHitResult>& OutHits) const;
+	void ResolvePenetrationAndDamage(const ASLWeaponBase* Weapon, const TArray<FHitResult>& Hits, const FVector& TraceStart);
 	// Internal server logic
 	void TryPickupWeapon_Internal();
 	void DropEquippedWeapon_Internal();

@@ -18,6 +18,8 @@ class SURVIVORLAND_API ASLWeaponBase : public AActor
 
 public:
 	ASLWeaponBase();
+	FName GetMuzzleSocketName() const;
+	FTransform GetMuzzleTransform() const;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Weapon")
 	TObjectPtr<USphereComponent> PickupSphere;
@@ -30,6 +32,9 @@ public:
 
 	UFUNCTION()
 	void ServerGiveTo(class ASLBaseGameCharacter* NewOwnerChar);
+
+	UFUNCTION(BlueprintCallable)
+	USkeletalMeshComponent* GetWeaponMesh() const;
 
 	/** Server: Drop weapon into world (detach, enable pickup, enable physics). */
 	void ServerDropFromOwner(const FVector& WorldLocation, const FVector& Impulse = FVector::ZeroVector);

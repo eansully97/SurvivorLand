@@ -29,7 +29,7 @@ public:
 
 
 protected:
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly)
 	ASLBaseGameCharacter* OwningCharacter;
 
 	UPROPERTY()
@@ -46,6 +46,9 @@ protected:
 
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "AnimData|LocomotionData")
 	bool bAiming;
+
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "AnimData|LocomotionData")
+	FTransform LeftHandTransform;
 	
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "AnimData|LocomotionData")
 	bool bWeaponEquipped;

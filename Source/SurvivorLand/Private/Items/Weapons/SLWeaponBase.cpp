@@ -49,6 +49,24 @@ void ASLWeaponBase::ApplyVisualFromDataAsset()
 	}
 }
 
+FName ASLWeaponBase::GetMuzzleSocketName() const
+{
+	return (WeaponData) ? WeaponData->Ballistics.MuzzleSocketName : TEXT("Muzzle");
+}
+
+FTransform ASLWeaponBase::GetMuzzleTransform() const
+{
+	if (!Mesh) return GetActorTransform();
+
+	const FName Socket = GetMuzzleSocketName();
+	if (Mesh->DoesSocketExist(Socket))
+	{
+		return Mesh->GetSocketTransform(Socket, RTS_World);
+	}
+
+	return Mesh->GetComponentTransform();
+}
+
 void ASLWeaponBase::SetPickupEnabled(bool bEnabled)
 {
 	if (!PickupSphere) return;
@@ -95,6 +113,11 @@ void ASLWeaponBase::ServerGiveTo(ASLBaseGameCharacter* NewOwnerChar)
 	{
 		Combat->Client_OnWeaponEquipped(nullptr, WeaponData);
 	}
+}
+
+USkeletalMeshComponent* ASLWeaponBase::GetWeaponMesh() const
+{
+	return Mesh;
 }
 
 void ASLWeaponBase::ServerDropFromOwner(const FVector& WorldLocation, const FVector& Impulse)

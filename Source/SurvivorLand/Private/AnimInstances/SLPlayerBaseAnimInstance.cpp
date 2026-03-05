@@ -4,6 +4,7 @@
 #include "AnimInstances/SLBasePlayerAnimInstance.h"
 #include "Characters/SLBaseGameCharacter.h"
 #include "Components/SLCombatComponent.h"
+#include "Engine/SkeletalMeshSocket.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Items/Weapons/SLWeaponBase.h"
 
@@ -58,4 +59,9 @@ void USLBasePlayerAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSecon
 
 	AimYaw = FMath::Clamp(Delta.Yaw, -90.f, 90.f);
 	AimPitch = FMath::Clamp(Delta.Pitch, -60.f, 60.f);
+
+	if (OwningCharacter && OwningCharacter->GetEquippedWeapon())
+	{
+		LeftHandTransform = OwningCharacter->GetEquippedWeapon()->Mesh->GetSocketTransform("IK_LeftHand", RTS_World);
+	}
 }

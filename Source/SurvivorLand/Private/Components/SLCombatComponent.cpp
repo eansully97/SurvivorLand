@@ -13,6 +13,7 @@
 #include "Items/Weapons/SLWeaponBase.h"
 #include "Data/Weapon/SLWeaponData.h"
 #include "Data/Weapon/SLWeaponInputProfile.h"
+#include "Kismet/GameplayStatics.h"
 
 USLCombatComponent::USLCombatComponent()
 {
@@ -199,9 +200,163 @@ void USLCombatComponent::Server_SetAiming_Implementation(bool bNewAiming)
 	OnRep_Aiming(); // if you want server to run same cosmetic (usually fine)
 }
 
-void USLCombatComponent::FireEquippedWeapon()
+void USLCombatComponent::FirePressed()
 {
+
+	if (!bAiming) return;
 	
+	ASLBaseGameCharacter* OwnerChar = Cast<ASLBaseGameCharacter>(GetOwner());
+	if (!OwnerChar) return;
+
+	ASLWeaponBase* Weapon = GetEquippedWeapon();
+	if (!Weapon || !Weapon->WeaponData) return;
+
+	// For now: use client aimpoint. Later: server recompute for validation.
+	const FVector AimPoint = OwnerChar->GetAimTargetWorld();
+
+	if (GetOwnerRole() < ROLE_Authority)
+	{
+		Server_Fire(AimPoint);
+	}
+	else
+	{
+		Server_Fire(AimPoint); // ok for listen-server during testing
+	}
+}
+
+void USLCombatComponent::Server_Fire_Implementation(const FVector_NetQuantize& AimPoint)
+{
+	ASLBaseGameCharacter* OwnerChar = Cast<ASLBaseGameCharacter>(GetOwner());
+	if (!OwnerChar) return;
+
+	ASLWeaponBase* Weapon = GetEquippedWeapon();
+	if (!Weapon || !Weapon->WeaponData) return;
+
+	TArray<FHitResult> Hits;
+	PerformBallisticsTrace(Weapon, AimPoint, Hits);
+
+	const FVector TraceStart = Weapon->GetMuzzleTransform().GetLocation();
+	ResolvePenetrationAndDamage(Weapon, Hits, TraceStart);
+
+	// Debug (optional)
+	DrawDebugLine(GetWorld(), TraceStart, TraceStart + (AimPoint-TraceStart).GetSafeNormal()*Weapon->WeaponData->Ballistics.MaxRange, FColor::Red, false, 1.f);
+}
+
+void USLCombatComponent::PerformBallisticsTrace(const ASLWeaponBase* Weapon, const FVector& AimPoint, TArray<FHitResult>& OutHits) const
+{
+	OutHits.Reset();
+
+	const USLWeaponDataAsset* Data = Weapon->WeaponData;
+	const auto& B = Data->Ballistics;
+
+	const FVector Start = Weapon->GetMuzzleTransform().GetLocation();
+
+	FVector Dir = (AimPoint - Start);
+	if (!Dir.Normalize())
+	{
+		// fallback: shoot forward from owner control rotation
+		if (const ASLBaseGameCharacter* OwnerChar = Cast<ASLBaseGameCharacter>(GetOwner()))
+		{
+			Dir = OwnerChar->GetControlRotation().Vector();
+		}
+		else
+		{
+			Dir = FVector::ForwardVector;
+		}
+	}
+
+	const FVector End = Start + Dir * B.MaxRange;
+
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(Ballistics), /*bTraceComplex*/ true);
+	Params.AddIgnoredActor(GetOwner());
+	Params.AddIgnoredActor(const_cast<ASLWeaponBase*>(Weapon));
+
+	// Multi-hit
+	if (B.TraceRadius > 0.f)
+	{
+		const FCollisionShape Shape = FCollisionShape::MakeSphere(B.TraceRadius);
+		GetWorld()->SweepMultiByChannel(OutHits, Start, End, FQuat::Identity, B.TraceChannel, Shape, Params);
+	}
+	else
+	{
+		GetWorld()->LineTraceMultiByChannel(OutHits, Start, End, B.TraceChannel, Params);
+	}
+
+	// Sort by distance from start (important)
+	OutHits.Sort([&](const FHitResult& A, const FHitResult& BHit)
+	{
+		return A.Distance < BHit.Distance;
+	});
+}
+
+void USLCombatComponent::ResolvePenetrationAndDamage(const ASLWeaponBase* Weapon, const TArray<FHitResult>& Hits, const FVector& TraceStart)
+{
+	const USLWeaponDataAsset* Data = Weapon->WeaponData;
+	const auto& B = Data->Ballistics;
+
+	float RemainingPen = B.PenetrationDepth;
+	float CurrentDamage = B.BaseDamage;
+
+	for (const FHitResult& Hit : Hits)
+	{
+		AActor* HitActor = Hit.GetActor();
+		if (!HitActor) continue;
+
+		// Apply damage to damageables (placeholder)
+		if (HitActor != GetOwner())
+		{
+			UGameplayStatics::ApplyPointDamage(
+				HitActor,
+				CurrentDamage,
+				(Hit.TraceEnd - Hit.TraceStart).GetSafeNormal(),
+				Hit,
+				Cast<APawn>(GetOwner()) ? Cast<APawn>(GetOwner())->GetController() : nullptr,
+				const_cast<AActor*>(GetOwner()),
+				nullptr
+			);
+		}
+
+		// Decide penetration cost
+		float Cost = 0.f;
+
+		// Example simple rules; replace with PhysMat later
+		const ECollisionChannel MyChannel = Hit.Component.IsValid() ? Hit.Component->GetCollisionObjectType() : ECC_WorldStatic;
+
+		if (MyChannel == ECC_WorldStatic)
+		{
+			Cost = 999999.f; // effectively stops
+		}
+		else if (MyChannel == ECC_WorldDynamic)
+		{
+			Cost = 25.f; // tune
+		}
+		else if (MyChannel == ECC_Pawn)
+		{
+			Cost = 0.f; // allow multi-hit on pawns
+		}
+		else
+		{
+			Cost = 10.f;
+		}
+
+		// Reduce damage after each penetration (optional)
+		if (RemainingPen > 0.f && Cost < 999999.f)
+		{
+			CurrentDamage *= 0.85f; // tune
+		}
+
+		// Consume penetration budget and decide stop
+		if (B.PenetrationDepth <= 0.f) // no penetration configured
+		{
+			break;
+		}
+
+		RemainingPen -= Cost;
+		if (RemainingPen <= 0.f || Cost >= 999999.f)
+		{
+			break;
+		}
+	}
 }
 
 void USLCombatComponent::DropEquippedWeapon()

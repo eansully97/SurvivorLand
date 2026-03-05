@@ -223,6 +223,11 @@ ASLWeaponBase* ASLBaseGameCharacter::GetEquippedWeapon() const
 	return CombatComponent->Inventory[Index].Get();
 }
 
+USLCombatComponent* ASLBaseGameCharacter::GetCombatComponent() const
+{
+	return CombatComponent;
+}
+
 bool ASLBaseGameCharacter::IsAiming() const
 {
 	return CombatComponent && CombatComponent->IsAiming();
@@ -232,7 +237,7 @@ void ASLBaseGameCharacter::HandleActionStarted(FGameplayTag InputTag)
 {
 	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Jump) Jump();
 	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Aim) CombatComponent->SetAiming(true);
-	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Fire) CombatComponent->FireEquippedWeapon();
+	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Fire) CombatComponent->FirePressed();
 	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Drop) CombatComponent->DropEquippedWeapon();
 	if (InputTag == SurvivorLandGameplayTags::Input_Shared_Interact) CombatComponent->TryInteract();
 }

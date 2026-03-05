@@ -83,6 +83,7 @@ public:
 
 	// Handlers bound to the InputHandlerComponent delegates:
 	bool bInputBound = false;
+	
 	UFUNCTION()
 	void HandleAxis2D(FGameplayTag InputTag, FVector2D Value);
 
@@ -95,15 +96,18 @@ public:
 	UFUNCTION()
 	bool IsWeaponEquipped() const;
 	
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable)
 	ASLWeaponBase* GetEquippedWeapon() const;
 
-	UFUNCTION(BlueprintPure)
-	bool IsAiming() const;
-	
-	float GetAimYawOffset() const;
+	UFUNCTION(BlueprintCallable)
+	USLCombatComponent* GetCombatComponent() const;
 
-	UFUNCTION()
+	FVector GetAimTargetWorld() const { return AimTargetWorld; }
+
+	UFUNCTION(BlueprintPure)
+	
+	bool IsAiming() const;
+	float GetAimYawOffset() const;
 	void UpdateAimTarget(float DeltaSeconds);
 	void UpdateTurnInPlace(float DeltaSeconds);
 };
