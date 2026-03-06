@@ -8,7 +8,6 @@
 #include "SurvivorLandGameplayTags.h" // your native tags namespace
 #include "Camera/CameraComponent.h"
 #include "Components/Combat/SLCombatComponent.h"
-#include "Components/Combat/SLSurvivorCombatComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 
@@ -69,7 +68,7 @@ void ASLBaseGameCharacter::BeginPlay()
 
 void ASLBaseGameCharacter::UpdateAimTarget(float DeltaSeconds)
 {
-	if (!IsLocallyControlled()) return;
+	if (!IsLocallyControlled() || !Controller) return;
 
 	FVector CamLoc;
 	FRotator CamRot;

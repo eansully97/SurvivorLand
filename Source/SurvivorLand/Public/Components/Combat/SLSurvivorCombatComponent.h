@@ -6,6 +6,7 @@
 #include "SLCombatComponent.h"
 #include "SLSurvivorCombatComponent.generated.h"
 
+class ASLBaseProjectile;
 class USLInputHandlerComponent;
 class UInputMappingContext;
 class UEnhancedInputComponent;
@@ -27,7 +28,7 @@ public:
 	void TryPickupWeapon();
 	
 	UFUNCTION(Server, Reliable)
-	void Server_DropEquippedWeapon();
+	void Server_DropEquippedWeapon(ASLWeaponBase* Weapon);
 	void DropEquippedWeapon();
 	
 	UFUNCTION(Server, Reliable)
@@ -35,31 +36,51 @@ public:
 	void FirePressed();
 
 	UFUNCTION(Client, Reliable)
-	void Client_OnWeaponEquipped(const USLWeaponDataAsset* WeaponData);
+	void Client_ApplyEquippedPresentation(const USLWeaponDataAsset* WeaponData);
 	
 	UFUNCTION(Client, Reliable)
-	void Client_OnWeaponUnequipped();
+	void Client_ClearEquippedPresentation();
+	
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_PlayFireFX();
+
+	void SpawnMuzzleFlashFX(const ASLWeaponBase* Weapon) const;
+	void SpawnFireSoundFX(const ASLWeaponBase* Weapon) const;
 
 protected:
 	
 	void PerformBallisticsTrace(const ASLWeaponBase* Weapon, const FVector& AimPoint, TArray<FHitResult>& OutHits) const;
 	void ResolvePenetrationAndDamage(const ASLWeaponBase* Weapon, const TArray<FHitResult>& Hits, const FVector& TraceStart) const;
 	
-	// Internal server logic
-	void TryPickupWeapon_Internal();
-	void DropEquippedWeapon_Internal();
+	
+
 
 	// Input mapping helpers (client-side)
 	void EquipWeaponContext(APlayerController* PC, UInputMappingContext* WeaponContext, int32 Priority = 1);
 	void UnequipWeaponContext(APlayerController* PC);
+	
+	// Internal server logic
+	void EquipWeapon_Internal(ASLWeaponBase* Weapon);
+	void StowWeapon_Internal(ASLWeaponBase* Weapon);
+	void TryPickupWeapon_Internal();
+	void SwitchWeapons_Internal();
+	void DropEquippedWeapon_Internal();
+	void DropWeapon_Internal(ASLWeaponBase* Weapon) const;
+	
+	void ApplyEquippedPresentation(const ASLWeaponBase* Weapon);
+	void ClearEquippedPresentation();
+
+	UFUNCTION(Server, Reliable)
+	void Server_SwitchWeapons();
+	void SwitchWeapons();
 
 private:
 
 	UPROPERTY(Replicated, VisibleAnywhere, Category="SL|Combat")
-	TArray<TObjectPtr<ASLWeaponBase>> Inventory;
+	ASLWeaponBase* EquippedWeapon = nullptr;
 
 	UPROPERTY(Replicated, VisibleAnywhere, Category="SL|Combat")
-	int32 EquippedIndex = INDEX_NONE;
+	ASLWeaponBase* StowedWeapon = nullptr;
 	
 	UPROPERTY()
 	TObjectPtr<UInputMappingContext> EquippedWeaponContext = nullptr;
@@ -68,13 +89,21 @@ public:
 	virtual void HandleActionStarted(FGameplayTag InputTag) override;
 	virtual void HandleActionCompleted(FGameplayTag InputTag) override;
 	
+	void StartFire();
+	void StopFire();
+	bool bFireHeld = false;
+
+	FTimerHandle AutoFireTimer;
+	
 	// Getters
 	UFUNCTION(BlueprintPure)
-	ASLWeaponBase* GetEquippedWeapon() const { return Inventory.IsValidIndex(EquippedIndex) ? Inventory[EquippedIndex] : nullptr; }
+	ASLWeaponBase* GetEquippedWeapon() const { return EquippedWeapon; }
+
+	UFUNCTION(BlueprintPure)
+	ASLWeaponBase* GetStowedWeapon() const { return StowedWeapon; }
 	
 	//Inline Getters
-	FORCEINLINE TArray<TObjectPtr<ASLWeaponBase>> GetInventory() const { return Inventory; }
 	FORCEINLINE bool IsAiming() const { return bAiming; }
-	FORCEINLINE int32 GetEquippedIndex() const { return EquippedIndex; }
-	FORCEINLINE bool HasEquippedWeapon() const { return Inventory.IsValidIndex(EquippedIndex); }
+	FORCEINLINE bool HasEquippedWeapon() const { return EquippedWeapon != nullptr; }
+	FORCEINLINE bool HasStowedWeapon() const { return StowedWeapon != nullptr; }
 };

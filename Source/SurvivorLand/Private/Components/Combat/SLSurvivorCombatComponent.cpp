@@ -1,8 +1,11 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
+#include "Components/Combat/SLSurvivorCombatComponent.h"
 
 #include "Net/UnrealNetwork.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "NiagaraComponent.h"
+#include "NiagaraFunctionLibrary.h"
 #include "GameFramework/PlayerController.h"
 #include "AnimInstances/SLBasePlayerAnimInstance.h"
 #include "Characters/SLBaseGameCharacter.h"
@@ -12,7 +15,10 @@
 #include "Items/Weapons/SLWeaponBase.h"
 #include "Data/Weapon/SLWeaponData.h"
 #include "Data/Weapon/SLWeaponInputProfile.h"
+#include "GameFramework/ProjectileMovementComponent.h"
+#include "Items/Projectiles/SLBaseProjectile.h"
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundCue.h"
 
 USLSurvivorCombatComponent::USLSurvivorCombatComponent()
 {
@@ -23,39 +29,75 @@ USLSurvivorCombatComponent::USLSurvivorCombatComponent()
 void USLSurvivorCombatComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(ThisClass, Inventory)
-	DOREPLIFETIME(ThisClass, EquippedIndex);
+	DOREPLIFETIME(ThisClass, EquippedWeapon)
+	DOREPLIFETIME(ThisClass, StowedWeapon);
 	DOREPLIFETIME(ThisClass, bAiming);
 }
 
 void USLSurvivorCombatComponent::Server_TryPickupWeapon_Implementation()
 {
-	TryPickupWeapon_Internal();
+	TryPickupWeapon();
+}
+
+void USLSurvivorCombatComponent::EquipWeapon_Internal(ASLWeaponBase* Weapon)
+{
+	ASLSurvivorCharacterBase* OwnerChar = Cast<ASLSurvivorCharacterBase>(GetOwner());
+	if (!OwnerChar || !Weapon || !Weapon->GetWeaponData())
+	{
+		return;
+	}
+
+	EquippedWeapon = Weapon;
+	Weapon->SetOwner(OwnerChar);
+
+	const FName HandSocket = OwnerChar->GetWeaponAttachSocket(Weapon->GetWeaponData()->Grip);
+	Weapon->ServerAttachToOwnerSocket(OwnerChar, HandSocket, true);
+
+	ApplyEquippedPresentation(Weapon);
+}
+
+void USLSurvivorCombatComponent::StowWeapon_Internal(ASLWeaponBase* Weapon)
+{
+	ASLSurvivorCharacterBase* OwnerChar = Cast<ASLSurvivorCharacterBase>(GetOwner());
+	if (!OwnerChar || !Weapon || !Weapon->GetWeaponData())
+	{
+		return;
+	}
+
+	StowedWeapon = Weapon;
+	Weapon->SetOwner(OwnerChar);
+
+	const FName StowSocket = OwnerChar->GetWeaponStowSocket(Weapon->GetWeaponData()->Grip);
+	Weapon->ServerAttachToOwnerSocket(OwnerChar, StowSocket, true);
 }
 
 void USLSurvivorCombatComponent::TryPickupWeapon_Internal()
 {
 	ASLSurvivorCharacterBase* OwnerChar = Cast<ASLSurvivorCharacterBase>(GetOwner());
-	if (!OwnerChar) return;
+	if (!OwnerChar)
+	{
+		return;
+	}
 
-	// Find nearest overlapping weapon that is NOT held
 	TArray<AActor*> Overlaps;
 	OwnerChar->GetOverlappingActors(Overlaps, ASLWeaponBase::StaticClass());
 
 	ASLWeaponBase* Best = nullptr;
 	float BestDistSq = TNumericLimits<float>::Max();
 
-	for (AActor* A : Overlaps)
+	for (AActor* Actor : Overlaps)
 	{
-		ASLWeaponBase* W = Cast<ASLWeaponBase>(A);
-		if (!W || !W->GetWeaponData()) continue;
-		if (W->IsHeld()) continue;
-
-		const float D = FVector::DistSquared(W->GetActorLocation(), OwnerChar->GetActorLocation());
-		if (D < BestDistSq)
+		ASLWeaponBase* Weapon = Cast<ASLWeaponBase>(Actor);
+		if (!Weapon || !Weapon->GetWeaponData() || Weapon->IsHeld())
 		{
-			BestDistSq = D;
-			Best = W;
+			continue;
+		}
+
+		const float DistSq = FVector::DistSquared(Weapon->GetActorLocation(), OwnerChar->GetActorLocation());
+		if (DistSq < BestDistSq)
+		{
+			BestDistSq = DistSq;
+			Best = Weapon;
 		}
 	}
 
@@ -64,65 +106,139 @@ void USLSurvivorCombatComponent::TryPickupWeapon_Internal()
 		return;
 	}
 
-	// Add to inventory and equip it (supports multi-weapon later)
-	Inventory.Add(Best);
-	EquippedIndex = Inventory.Num() - 1;
+	// No equipped weapon: equip immediately
+	if (!EquippedWeapon)
+	{
+		EquipWeapon_Internal(Best);
+		return;
+	}
 
-	Best->ServerGiveTo(OwnerChar);
+	// Equipped but no stowed: move current equipped to stowed, equip new
+	if (!StowedWeapon)
+	{
+		ASLWeaponBase* OldEquipped = EquippedWeapon;
+		EquippedWeapon = nullptr;
+
+		StowWeapon_Internal(OldEquipped);
+		EquipWeapon_Internal(Best);
+		return;
+	}
 }
 
-void USLSurvivorCombatComponent::Server_DropEquippedWeapon_Implementation()
+void USLSurvivorCombatComponent::SwitchWeapons_Internal()
 {
-	DropEquippedWeapon_Internal();
+	if (!EquippedWeapon || !StowedWeapon)
+	{
+		return;
+	}
+
+	ClearEquippedPresentation();
+
+	ASLWeaponBase* OldEquipped = EquippedWeapon;
+	ASLWeaponBase* OldStowed = StowedWeapon;
+
+	EquippedWeapon = nullptr;
+	StowedWeapon = nullptr;
+
+	StowWeapon_Internal(OldEquipped);
+	EquipWeapon_Internal(OldStowed);
 }
 
 void USLSurvivorCombatComponent::DropEquippedWeapon_Internal()
 {
+	if (!EquippedWeapon)
+	{
+		return;
+	}
+
+	ClearEquippedPresentation();
+
+	ASLWeaponBase* WeaponToDrop = EquippedWeapon;
+	EquippedWeapon = nullptr;
+
+	DropWeapon_Internal(WeaponToDrop);
+
+	// Auto-equip stowed if present
+	if (StowedWeapon)
+	{
+		ASLWeaponBase* NewEquipped = StowedWeapon;
+		StowedWeapon = nullptr;
+
+		EquipWeapon_Internal(NewEquipped);
+	}
+}
+
+void USLSurvivorCombatComponent::ClearEquippedPresentation()
+{
+	bFireHeld = false;
+	StopFire();
+	Client_ClearEquippedPresentation();
+}
+
+void USLSurvivorCombatComponent::ApplyEquippedPresentation(const ASLWeaponBase* Weapon)
+{
+	if (!Weapon || !Weapon->GetWeaponData())
+	{
+		ClearEquippedPresentation();
+		return;
+	}
+
+	Client_ApplyEquippedPresentation(Weapon->GetWeaponData());
+}
+
+void USLSurvivorCombatComponent::Server_DropEquippedWeapon_Implementation(ASLWeaponBase* Weapon)
+{
+	DropWeapon_Internal(Weapon);
+}
+
+void USLSurvivorCombatComponent::DropWeapon_Internal(ASLWeaponBase* Weapon) const
+{
 	ASLBaseGameCharacter* OwnerChar = Cast<ASLBaseGameCharacter>(GetOwner());
-	if (!OwnerChar) return;
+	if (!OwnerChar || !Weapon)
+	{
+		return;
+	}
 
-	ASLWeaponBase* Weapon = GetEquippedWeapon();
-	if (!Weapon) return;
-
-	// Tell owning client to remove weapon mapping context
-	Client_OnWeaponUnequipped();
-
-	// Drop location in front of player
 	const FVector DropLoc =
 		OwnerChar->GetActorLocation() +
 		OwnerChar->GetActorForwardVector() * 120.f +
 		FVector(0.f, 0.f, 40.f);
 
-	// Optional small impulse forward
 	const FVector Impulse = OwnerChar->GetActorForwardVector() * 200.f;
 
+	Weapon->SetOwner(nullptr);
 	Weapon->ServerDropFromOwner(DropLoc, Impulse);
+}
 
-	// Remove from inventory
-	Inventory.RemoveAt(EquippedIndex);
-
-	// Update equipped index
-	EquippedIndex = (Inventory.Num() > 0) ? FMath::Clamp(EquippedIndex, 0, Inventory.Num() - 1) : INDEX_NONE;
-
-	// If we still have a weapon, equip its context/binds on owning client
-	if (HasEquippedWeapon())
+void USLSurvivorCombatComponent::SwitchWeapons()
+{
+	if (GetOwner() && GetOwner()->HasAuthority())
 	{
-		ASLWeaponBase* NewEquipped = GetEquippedWeapon();
-		if (NewEquipped && NewEquipped->GetWeaponData())
-		{
-			Client_OnWeaponEquipped(NewEquipped->GetWeaponData());
-		}
+		SwitchWeapons_Internal();
+	}
+	else
+	{
+		Server_SwitchWeapons();
 	}
 }
 
+void USLSurvivorCombatComponent::Server_SwitchWeapons_Implementation()
+{
+	SwitchWeapons_Internal();
+}
 
-void USLSurvivorCombatComponent::Client_OnWeaponEquipped_Implementation(const USLWeaponDataAsset* WeaponData)
+
+void USLSurvivorCombatComponent::Client_ApplyEquippedPresentation_Implementation(const USLWeaponDataAsset* WeaponData)
 {
 	ASLBaseGameCharacter* OwnerChar = Cast<ASLBaseGameCharacter>(GetOwner());
 	if (!OwnerChar || !WeaponData) return;
 
 	APlayerController* PC = Cast<APlayerController>(OwnerChar->GetController());
 	if (!PC) return;
+
+	bFireHeld = false;
+	StopFire();
+	UnequipWeaponContext(PC);
 
 	// INPUT PROFILE
 	if (WeaponData->InputProfile)
@@ -157,13 +273,16 @@ void USLSurvivorCombatComponent::Client_OnWeaponEquipped_Implementation(const US
 	}
 }
 
-void USLSurvivorCombatComponent::Client_OnWeaponUnequipped_Implementation()
+void USLSurvivorCombatComponent::Client_ClearEquippedPresentation_Implementation()
 {
 	ASLBaseGameCharacter* OwnerChar = Cast<ASLBaseGameCharacter>(GetOwner());
 	if (!OwnerChar) return;
 
 	APlayerController* PC = Cast<APlayerController>(OwnerChar->GetController());
 	if (!PC) return;
+
+	bFireHeld = false;
+	StopFire();
 
 	if (UAnimInstance* Anim = OwnerChar->GetMesh()->GetAnimInstance())
 	{
@@ -176,81 +295,166 @@ void USLSurvivorCombatComponent::Client_OnWeaponUnequipped_Implementation()
 			}
 		}
 	}
-
 	UnequipWeaponContext(PC);
 }
 
 void USLSurvivorCombatComponent::FirePressed()
 {
-	if (!bAiming) return;
-	
+	if (!bAiming)
+	{
+		return;
+	}
+	if (!bFireHeld)
+	{
+		return;
+	}
 	ASLBaseGameCharacter* OwnerChar = Cast<ASLBaseGameCharacter>(GetOwner());
-	if (!OwnerChar) return;
+	if (!OwnerChar)
+	{
+		return;
+	}
 
 	ASLWeaponBase* Weapon = GetEquippedWeapon();
-	if (!Weapon || !Weapon->GetWeaponData()) return;
+	if (!Weapon)
+	{
+		return;
+	}
 
-	// For now: use client aimpoint. Later: server recompute for validation.
+	const USLWeaponDataAsset* WeaponData = Weapon->GetWeaponData();
+	if (!WeaponData)
+	{
+		return;
+	}
+
 	const FVector AimPoint = OwnerChar->GetAimTargetWorld();
 
-	if (GetOwnerRole() < ROLE_Authority)
+	if (GetOwner() && GetOwner()->HasAuthority())
 	{
-		Server_Fire(AimPoint);
+		Server_Fire_Implementation(AimPoint);
 	}
 	else
 	{
-		Server_Fire(AimPoint); // ok for listen-server during testing
+		Server_Fire(AimPoint);
 	}
 }
 
 void USLSurvivorCombatComponent::Server_Fire_Implementation(const FVector_NetQuantize& AimPoint)
 {
 	ASLBaseGameCharacter* OwnerChar = Cast<ASLBaseGameCharacter>(GetOwner());
-	if (!OwnerChar) return;
+	if (!OwnerChar)
+	{
+		return;
+	}
 
 	ASLWeaponBase* Weapon = GetEquippedWeapon();
-	if (!Weapon || !Weapon->GetWeaponData()) return;
+	if (!Weapon)
+	{
+		return;
+	}
 
-	TArray<FHitResult> Hits;
-	PerformBallisticsTrace(Weapon, AimPoint, Hits);
+	const USLWeaponDataAsset* WeaponData = Weapon->GetWeaponData();
+	if (!WeaponData)
+	{
+		return;
+	}
 
-	const FVector TraceStart = Weapon->GetMuzzleTransform().GetLocation();
-	ResolvePenetrationAndDamage(Weapon, Hits, TraceStart);
+	if (WeaponData->FireType == ESLWeaponFireType::Projectile)
+	{
+		const FTransform MuzzleTransform = Weapon->GetMuzzleTransform();
+		const FVector SpawnLocation = MuzzleTransform.GetLocation();
+		const FVector Direction = (AimPoint - SpawnLocation).GetSafeNormal();
+		const FRotator SpawnRotation = Direction.Rotation();
 
-	// Debug (optional)
-	DrawDebugLine(GetWorld(), TraceStart, TraceStart + (AimPoint-TraceStart).GetSafeNormal()*Weapon->GetWeaponData()->Ballistics.MaxRange, FColor::Red, false, 1.f);
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = GetOwner();
+		SpawnParams.Instigator = Cast<APawn>(GetOwner());
+
+		ASLBaseProjectile* Projectile = GetWorld()->SpawnActor<ASLBaseProjectile>(
+			WeaponData->ProjectileClass,
+			SpawnLocation,
+			SpawnRotation,
+			SpawnParams
+		);
+		if (Projectile)
+		{
+			Projectile->InitializeProjectile(
+				GetOwner(),
+				Cast<APawn>(GetOwner()) ? Cast<APawn>(GetOwner())->GetController() : nullptr,
+				WeaponData->Ballistics.BaseDamage
+			);
+			Projectile->SpawnTracerFX(WeaponData);
+
+			if (UProjectileMovementComponent* MoveComp = Projectile->FindComponentByClass<UProjectileMovementComponent>())
+			{
+				MoveComp->Velocity = Direction * WeaponData->ProjectileSpeed;
+			}
+		}
+	}
+	if (WeaponData->FireType == ESLWeaponFireType::Hitscan)
+	{
+		TArray<FHitResult> Hits;
+		PerformBallisticsTrace(Weapon, AimPoint, Hits);
+
+		// Sort hits before using them
+		Hits.Sort([](const FHitResult& A, const FHitResult& B)
+		{
+			return A.Distance < B.Distance;
+		});
+	
+		const FVector TraceStart = Weapon->GetMuzzleTransform().GetLocation();
+		const FVector TraceDir = (AimPoint - TraceStart).GetSafeNormal();
+		const FVector TraceEnd = TraceStart + TraceDir * WeaponData->Ballistics.MaxRange;
+		const FVector VisualEnd = Hits.Num() > 0 ? Hits[0].ImpactPoint : TraceEnd;
+
+		
+		if (UParticleSystem* Trail = WeaponData->BeamTrail)
+		{
+			if (UParticleSystemComponent* Beam = UGameplayStatics::SpawnEmitterAtLocation(
+					this, Trail, TraceStart, FRotator::ZeroRotator, true))
+			{
+				Beam->SetVectorParameter(FName("Target"), VisualEnd);
+			}
+		}
+
+		ResolvePenetrationAndDamage(Weapon, Hits, TraceStart);
+	}
+	Multicast_PlayFireFX();
 }
+
 
 void USLSurvivorCombatComponent::PerformBallisticsTrace(const ASLWeaponBase* Weapon, const FVector& AimPoint, TArray<FHitResult>& OutHits) const
 {
 	OutHits.Reset();
 
 	const USLWeaponDataAsset* Data = Weapon->GetWeaponData();
-	const auto& B = Data->Ballistics;
-
-	const FVector Start = Weapon->GetMuzzleTransform().GetLocation();
-
-	FVector Dir = (AimPoint - Start);
-	if (!Dir.Normalize())
+	if (!Data)
 	{
-		// fallback: shoot forward from owner control rotation
-		if (const ASLBaseGameCharacter* OwnerChar = Cast<ASLBaseGameCharacter>(GetOwner()))
-		{
-			Dir = OwnerChar->GetControlRotation().Vector();
-		}
-		else
-		{
-			Dir = FVector::ForwardVector;
-		}
+		return;
+	}
+
+	const auto& B = Data->Ballistics;
+	const FTransform MuzzleTransform = Weapon->GetMuzzleTransform();
+	const FVector Start = MuzzleTransform.GetLocation() + MuzzleTransform.GetRotation().GetForwardVector() * 10.f;
+
+	FVector Dir = (AimPoint - Start).GetSafeNormal();
+
+	float Spread = B.Spread;
+	if (IsAiming())
+	{
+		Spread *= B.AdsSpreadMultiplier;
+	}
+
+	if (Spread > 0.f)
+	{
+		Dir = FMath::VRandCone(Dir, FMath::DegreesToRadians(Spread));
 	}
 
 	const FVector End = Start + Dir * B.MaxRange;
 
-	FCollisionQueryParams Params(SCENE_QUERY_STAT(Ballistics), /*bTraceComplex*/ true);
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(Ballistics), true);
 	Params.AddIgnoredActor(GetOwner());
 	Params.AddIgnoredActor(const_cast<ASLWeaponBase*>(Weapon));
 
-	// Multi-hit
 	if (B.TraceRadius > 0.f)
 	{
 		const FCollisionShape Shape = FCollisionShape::MakeSphere(B.TraceRadius);
@@ -260,13 +464,8 @@ void USLSurvivorCombatComponent::PerformBallisticsTrace(const ASLWeaponBase* Wea
 	{
 		GetWorld()->LineTraceMultiByChannel(OutHits, Start, End, B.TraceChannel, Params);
 	}
-
-	// Sort by distance from start (important)
-	OutHits.Sort([&](const FHitResult& A, const FHitResult& BHit)
-	{
-		return A.Distance < BHit.Distance;
-	});
 }
+
 
 void USLSurvivorCombatComponent::ResolvePenetrationAndDamage(const ASLWeaponBase* Weapon, const TArray<FHitResult>& Hits, const FVector& TraceStart) const
 {
@@ -280,21 +479,12 @@ void USLSurvivorCombatComponent::ResolvePenetrationAndDamage(const ASLWeaponBase
 	{
 		AActor* HitActor = Hit.GetActor();
 		if (!HitActor) continue;
-
-		// Apply damage to damageables (placeholder)
-		if (HitActor != GetOwner())
+		if (HitActor == Weapon) continue;
+		if (Hit.bBlockingHit && !Hit.bStartPenetrating)
 		{
-			UGameplayStatics::ApplyPointDamage(
-				HitActor,
-				CurrentDamage,
-				(Hit.TraceEnd - Hit.TraceStart).GetSafeNormal(),
-				Hit,
-				Cast<APawn>(GetOwner()) ? Cast<APawn>(GetOwner())->GetController() : nullptr,
-				const_cast<AActor*>(GetOwner()),
-				nullptr
-			);
+			DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 5.f, 8, FColor::Green, false, 2.f);
 		}
-
+		
 		// Decide penetration cost
 		float Cost;
 
@@ -338,6 +528,58 @@ void USLSurvivorCombatComponent::ResolvePenetrationAndDamage(const ASLWeaponBase
 	}
 }
 
+void USLSurvivorCombatComponent::Multicast_PlayFireFX_Implementation()
+{
+	ASLWeaponBase* Weapon = GetEquippedWeapon();
+	if (!Weapon)
+	{
+		return;
+	}
+
+	SpawnMuzzleFlashFX(Weapon);
+	SpawnFireSoundFX(Weapon);
+}
+
+void USLSurvivorCombatComponent::SpawnMuzzleFlashFX(const ASLWeaponBase* Weapon) const
+{
+	if (!Weapon)
+	{
+		return;
+	}
+
+	const USLWeaponDataAsset* WeaponData = Weapon->GetWeaponData();
+	if (!WeaponData || !WeaponData->MuzzleFlash)
+	{
+		return;
+	}
+
+	UNiagaraFunctionLibrary::SpawnSystemAttached(
+		WeaponData->MuzzleFlash,
+		Weapon->GetWeaponMesh(),
+		WeaponData->Ballistics.MuzzleSocketName,
+		FVector::ZeroVector,
+		FRotator::ZeroRotator,
+		EAttachLocation::SnapToTarget,
+		true
+	);
+}
+
+void USLSurvivorCombatComponent::SpawnFireSoundFX(const ASLWeaponBase* Weapon) const
+{
+	if (!Weapon)
+	{
+		return;
+	}
+
+	const USLWeaponDataAsset* WeaponData = Weapon->GetWeaponData();
+	if (!WeaponData || !WeaponData->FireSound)
+	{
+		return;
+	}
+
+	UGameplayStatics::PlaySoundAtLocation(this, WeaponData->FireSound, Weapon->GetActorLocation());
+}
+
 void USLSurvivorCombatComponent::DropEquippedWeapon()
 {
 	if (GetOwner() && GetOwner()->HasAuthority())
@@ -346,7 +588,7 @@ void USLSurvivorCombatComponent::DropEquippedWeapon()
 	}
 	else
 	{
-		Server_DropEquippedWeapon();
+		Server_DropEquippedWeapon(EquippedWeapon);
 	}
 }
 
@@ -413,13 +655,21 @@ void USLSurvivorCombatComponent::HandleActionStarted(FGameplayTag InputTag)
 
 	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Fire)
 	{
-		FirePressed();
+		bFireHeld = true;
+
+		StartFire();
+
 		return;
 	}
 
 	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Drop)
 	{
 		DropEquippedWeapon();
+		return;
+	}
+	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_SwitchWeapon)
+	{
+		SwitchWeapons();
 		return;
 	}
 }
@@ -431,4 +681,43 @@ void USLSurvivorCombatComponent::HandleActionCompleted(FGameplayTag InputTag)
 		SetAiming(false);
 		return;
 	}
+	if (InputTag == SurvivorLandGameplayTags::Input_Survivor_Fire)
+	{
+		bFireHeld = false;
+
+		StopFire();
+
+		return;
+	}
+}
+
+void USLSurvivorCombatComponent::StartFire()
+{
+	StopFire();
+
+	ASLWeaponBase* Weapon = GetEquippedWeapon();
+	if (!Weapon) return;
+
+	const USLWeaponDataAsset* Data = Weapon->GetWeaponData();
+	if (!Data) return;
+
+	const float FireDelay = 60.f / Data->FireSettings.FireRate;
+
+	FirePressed();
+
+	if (Data->FireSettings.bAutomatic)
+	{
+		GetWorld()->GetTimerManager().SetTimer(
+			AutoFireTimer,
+			this,
+			&USLSurvivorCombatComponent::FirePressed,
+			FireDelay,
+			true
+		);
+	}
+}
+
+void USLSurvivorCombatComponent::StopFire()
+{
+	GetWorld()->GetTimerManager().ClearTimer(AutoFireTimer);
 }

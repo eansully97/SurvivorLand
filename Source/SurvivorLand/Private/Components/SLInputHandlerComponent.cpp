@@ -36,8 +36,6 @@ void USLInputHandlerComponent::InitializeInput(APlayerController* PC, UEnhancedI
 			continue;
 		}
 		BoundActions.Add(Entry.InputAction);
-		
-
 		if (Entry.ValueType == EInputActionValueType::Axis2D)
 		{
 			// Triggered fires continuously for axes
@@ -49,8 +47,6 @@ void USLInputHandlerComponent::InitializeInput(APlayerController* PC, UEnhancedI
 			EnhancedInputComp->BindAction(Entry.InputAction, ETriggerEvent::Completed, this, &USLInputHandlerComponent::HandleActionCompleted, Entry.InputTag);
 		}
 	}
-
-	bInitialized = true;
 }
 
 void USLInputHandlerComponent::BindAdditionalActions(UEnhancedInputComponent* EnhancedInputComp, const TArray<FSurvivorLandTaggedInputAction>& ActionsToBind)
@@ -66,9 +62,14 @@ void USLInputHandlerComponent::BindAdditionalActions(UEnhancedInputComponent* En
 		{
 			continue;
 		}
-
+		if (BoundActions.Contains(Entry.InputAction))
+		{
+			continue;
+		}
+		BoundActions.Add(Entry.InputAction);
 		if (Entry.ValueType == EInputActionValueType::Axis2D)
 		{
+			// Triggered fires continuously for axes
 			EnhancedInputComp->BindAction(Entry.InputAction, ETriggerEvent::Triggered, this, &USLInputHandlerComponent::HandleAxis2DTriggered, Entry.InputTag);
 		}
 		else
@@ -91,6 +92,7 @@ void USLInputHandlerComponent::ApplyMappingContext(APlayerController* PC, const 
 	{
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = LP->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
 		{
+			if (Subsystem->HasMappingContext(InputConfig->DefaultMappingContext)) return;
 			Subsystem->AddMappingContext(InputConfig->DefaultMappingContext, /*Priority*/ 0);
 		}
 	}

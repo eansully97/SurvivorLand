@@ -44,10 +44,16 @@ public:
 	ASLWeaponBase* GetEquippedWeapon() const;
 
 	UFUNCTION(BlueprintPure)
+	ASLWeaponBase* GetStowedWeapon() const;
+
+	UFUNCTION(BlueprintPure)
 	USLSurvivorCombatComponent* GetSurvivorCombatComponent() const;
 	
 	UFUNCTION(BlueprintCallable)
 	FName GetWeaponAttachSocket(ESLWeaponGrip Grip) const;
+
+	UFUNCTION(BlueprintCallable)
+	FName GetWeaponStowSocket(ESLWeaponGrip Grip) const;
 
 	UFUNCTION(BlueprintPure)
 	bool IsWeaponEquipped() const;

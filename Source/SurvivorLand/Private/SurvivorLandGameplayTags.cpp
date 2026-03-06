@@ -15,6 +15,7 @@ namespace SurvivorLandGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Input_Survivor_Aim, "Input.Survivor.Aim");
 	UE_DEFINE_GAMEPLAY_TAG(Input_Survivor_Reload, "Input.Survivor.Reload");
 	UE_DEFINE_GAMEPLAY_TAG(Input_Survivor_Drop, "Input.Survivor.Drop");
+	UE_DEFINE_GAMEPLAY_TAG(Input_Survivor_SwitchWeapon, "Input.Survivor.SwitchWeapon");
 	
 
 	UE_DEFINE_GAMEPLAY_TAG(Input_Monster_PrimaryAttack, "Input.Monster.PrimaryAttack");

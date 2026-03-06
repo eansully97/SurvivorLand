@@ -22,7 +22,8 @@ public class SurvivorLand : ModuleRules
 			"GameplayStateTreeModule",
 			"UMG",
 			"Slate",
-			"AnimGraphRuntime"
+			"AnimGraphRuntime",
+			"Niagara"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "AnimGraphRuntime", "AnimGraphRuntime" });

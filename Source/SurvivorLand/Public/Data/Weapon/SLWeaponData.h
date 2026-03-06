@@ -5,6 +5,8 @@
 #include "GameplayTagContainer.h"
 #include "SLWeaponData.generated.h"
 
+class ASLBaseProjectile;
+class UNiagaraSystem;
 class USkeletalMesh;
 class USLWeaponInputProfile;
 class USLWeaponAnimProfile;
@@ -14,6 +16,24 @@ enum class ESLWeaponGrip : uint8
 {
 	Pistol UMETA(DisplayName="Pistol"),
 	Rifle  UMETA(DisplayName="Rifle")
+};
+UENUM(BlueprintType)
+enum class ESLWeaponFireType : uint8
+{
+	Hitscan,
+	Projectile
+};
+
+USTRUCT(BlueprintType)
+struct FSLWeaponFireSettings
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly)
+	float FireRate = 600.f; // rounds per minute
+
+	UPROPERTY(EditDefaultsOnly)
+	bool bAutomatic = false;
 };
 
 USTRUCT(BlueprintType)
@@ -39,6 +59,12 @@ struct FSLBallisticsConfig
 	// Damage at first hit; you can scale down after penetration
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Ballistics", meta=(ClampMin="0.0"))
 	float BaseDamage = 20.f;
+
+	UPROPERTY(EditDefaultsOnly)
+	float Spread = 0.5f; // degrees
+
+	UPROPERTY(EditDefaultsOnly)
+	float AdsSpreadMultiplier = 0.25f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Ballistics")
 	TEnumAsByte<ECollisionChannel> TraceChannel = ECC_Visibility;
@@ -67,5 +93,31 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon|Firing")
 	FSLBallisticsConfig Ballistics;
-	
+
+	UPROPERTY(EditDefaultsOnly, Category="Weapon|Fire")
+	FSLWeaponFireSettings FireSettings;
+
+	UPROPERTY(EditDefaultsOnly)
+	UNiagaraSystem* MuzzleFlash;
+
+	UPROPERTY(EditDefaultsOnly)
+	UNiagaraSystem* TracerEffect;
+
+	UPROPERTY(EditDefaultsOnly)
+	UParticleSystem* BeamTrail;
+
+	UPROPERTY(EditDefaultsOnly)
+	USoundCue* FireSound;
+
+	UPROPERTY(EditDefaultsOnly)
+	UAnimationAsset* FireAnimation;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon|Fire")
+	ESLWeaponFireType FireType = ESLWeaponFireType::Hitscan;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon|Fire")
+	TSubclassOf<ASLBaseProjectile> ProjectileClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon|Fire")
+	float ProjectileSpeed = 12000.f;
 };

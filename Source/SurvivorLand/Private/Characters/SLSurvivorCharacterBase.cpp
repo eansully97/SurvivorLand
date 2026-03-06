@@ -67,6 +67,21 @@ FName ASLSurvivorCharacterBase::GetWeaponAttachSocket(ESLWeaponGrip Grip) const
 		: TEXT("RightHandSocket_Pistol");
 }
 
+FName ASLSurvivorCharacterBase::GetWeaponStowSocket(ESLWeaponGrip Grip) const
+{
+	switch (Grip)
+	{
+	case ESLWeaponGrip::Pistol:
+		return TEXT("HipSocket");
+
+	case ESLWeaponGrip::Rifle:
+		return TEXT("BackSocket");
+
+	default:
+		return NAME_None;
+	}
+}
+
 bool ASLSurvivorCharacterBase::IsWeaponEquipped() const
 {
 	return SurvivorCombatComponent && SurvivorCombatComponent->GetEquippedWeapon() != nullptr;
@@ -75,6 +90,11 @@ bool ASLSurvivorCharacterBase::IsWeaponEquipped() const
 ASLWeaponBase* ASLSurvivorCharacterBase::GetEquippedWeapon() const
 {
 	return SurvivorCombatComponent ? SurvivorCombatComponent->GetEquippedWeapon() : nullptr;
+}
+
+ASLWeaponBase* ASLSurvivorCharacterBase::GetStowedWeapon() const
+{
+	return SurvivorCombatComponent ? SurvivorCombatComponent->GetStowedWeapon() : nullptr;
 }
 
 USLSurvivorCombatComponent* ASLSurvivorCharacterBase::GetSurvivorCombatComponent() const

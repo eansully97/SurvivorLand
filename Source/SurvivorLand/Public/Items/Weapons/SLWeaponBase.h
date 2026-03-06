@@ -7,6 +7,7 @@
 #include "GameFramework/Actor.h"
 #include "SLWeaponBase.generated.h"
 
+class ASLSurvivorCharacterBase;
 class USphereComponent;
 class USkeletalMeshComponent;
 class USLWeaponDataAsset;
@@ -21,10 +22,12 @@ public:
 	ASLWeaponBase();
 
 	UFUNCTION()
-	void ServerGiveTo(const class ASLSurvivorCharacterBase* NewOwnerChar);
+	void ServerGiveTo(ASLSurvivorCharacterBase* NewOwnerChar);
 
 	UFUNCTION()
 	void ServerDropFromOwner(const FVector& WorldLocation, const FVector& Impulse = FVector::ZeroVector);
+
+	void ServerAttachToOwnerSocket(ASLSurvivorCharacterBase* NewOwnerChar, const FName& SocketName, bool bOwnedByPlayer);
 	
 protected:
 
@@ -47,7 +50,7 @@ private:
 	TObjectPtr<USLWeaponDataAsset> WeaponData;
 	
 	UPROPERTY(Replicated)
-	bool bIsHeld = false;
+	bool bIsOwnedByPlayer = false;
 
 public:
 	
@@ -60,7 +63,7 @@ public:
 	
 	// Inline Getters
 	FORCEINLINE FName GetMuzzleSocketName() const {return WeaponData ? WeaponData->Ballistics.MuzzleSocketName : TEXT("Muzzle");}
-	FORCEINLINE bool IsHeld() const {return bIsHeld;}
+	FORCEINLINE bool IsHeld() const {return bIsOwnedByPlayer;}
 	FORCEINLINE USphereComponent* GetSphereComponent() const {return PickupSphere;}
 	FORCEINLINE USLWeaponDataAsset* GetWeaponData() const {return WeaponData;}
 };

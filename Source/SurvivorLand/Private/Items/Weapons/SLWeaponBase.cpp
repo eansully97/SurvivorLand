@@ -7,10 +7,8 @@
 #include "Net/UnrealNetwork.h"
 #include "Characters/SLBaseGameCharacter.h"
 #include "Characters/SLSurvivorCharacterBase.h"
-#include "Components/Combat/SLCombatComponent.h"
 #include "Components/Combat/SLSurvivorCombatComponent.h"
 #include "Data/Weapon/SLWeaponData.h"
-#include "Data/Weapon/SLWeaponInputProfile.h"
 
 ASLWeaponBase::ASLWeaponBase()
 {
@@ -79,43 +77,30 @@ void ASLWeaponBase::SetPhysicsEnabled(const bool bEnabled) const
 	Mesh->SetCollisionEnabled(bEnabled ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
 }
 
-void ASLWeaponBase::ServerGiveTo(const ASLSurvivorCharacterBase* NewOwnerChar)
+void ASLWeaponBase::ServerGiveTo(ASLSurvivorCharacterBase* NewOwnerChar)
 {
-	if (!HasAuthority() || !NewOwnerChar || !WeaponData || bIsHeld)
+	if (!NewOwnerChar || !WeaponData)
 	{
 		return;
 	}
 
-	bIsHeld = true;
-
-	Mesh->SetSimulatePhysics(false);
-	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	PickupSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-
-	// Decide socket based on weapon grip/type
-	
 	const FName AttachSocket = NewOwnerChar->GetWeaponAttachSocket(WeaponData->Grip);
-
-	AttachToComponent(
-		NewOwnerChar->GetMesh(),
-		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-		AttachSocket
-	);
+	ServerAttachToOwnerSocket(NewOwnerChar, AttachSocket, true);
 
 	if (USLSurvivorCombatComponent* Combat = NewOwnerChar->FindComponentByClass<USLSurvivorCombatComponent>())
 	{
-		Combat->Client_OnWeaponEquipped(WeaponData);
+		Combat->Client_ApplyEquippedPresentation(WeaponData);
 	}
 }
 
 void ASLWeaponBase::ServerDropFromOwner(const FVector& WorldLocation, const FVector& Impulse)
 {
-	if (!HasAuthority() || !bIsHeld)
+	if (!HasAuthority() || !bIsOwnedByPlayer)
 	{
 		return;
 	}
 
-	bIsHeld = false;
+	bIsOwnedByPlayer = false;
 
 	DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 	SetActorLocation(WorldLocation);
@@ -130,8 +115,34 @@ void ASLWeaponBase::ServerDropFromOwner(const FVector& WorldLocation, const FVec
 	}
 }
 
+void ASLWeaponBase::ServerAttachToOwnerSocket(ASLSurvivorCharacterBase* NewOwnerChar, const FName& SocketName, bool bOwnedByPlayer)
+{
+	if (!HasAuthority() || !NewOwnerChar || !Mesh)
+	{
+		return;
+	}
+
+	bIsOwnedByPlayer = bOwnedByPlayer;
+
+	Mesh->SetSimulatePhysics(false);
+	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	if (PickupSphere)
+	{
+		PickupSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
+	AttachToComponent(
+		NewOwnerChar->GetMesh(),
+		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+		SocketName
+	);
+}
+
 void ASLWeaponBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(ASLWeaponBase, bIsHeld);
+	DOREPLIFETIME(ASLWeaponBase, bIsOwnedByPlayer);
 }
+
+
