@@ -18,7 +18,7 @@ public:
 	ASLBaseProjectile();
 
 	void SpawnTracerFX(const USLWeaponDataAsset* WeaponData) const;
-	void InitializeProjectile(AActor* InOwnerActor, AController* InInstigatorController, float InDamage);
+	void InitializeProjectile(AActor* InOwnerActor, AController* InInstigatorController, const USLWeaponDataAsset* InWeaponData);
 
 protected:
 	virtual void BeginPlay() override;
@@ -48,6 +48,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Projectile")
 	float LifeSeconds = 5.f;
+
+	UPROPERTY()
+	TObjectPtr<const USLWeaponDataAsset> SourceWeaponData{nullptr};
 
 	UPROPERTY()
 	TObjectPtr<AActor> OwnerActorRef;

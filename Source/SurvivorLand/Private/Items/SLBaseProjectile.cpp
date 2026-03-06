@@ -8,6 +8,7 @@
 #include "Data/Weapon/SLWeaponData.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundCue.h"
 
 
 ASLBaseProjectile::ASLBaseProjectile()
@@ -45,11 +46,12 @@ void ASLBaseProjectile::BeginPlay()
 	}
 }
 
-void ASLBaseProjectile::InitializeProjectile(AActor* InOwnerActor, AController* InInstigatorController, float InDamage)
+void ASLBaseProjectile::InitializeProjectile(AActor* InOwnerActor, AController* InInstigatorController, const USLWeaponDataAsset* InWeaponData)
 {
 	OwnerActorRef = InOwnerActor;
 	InstigatorControllerRef = InInstigatorController;
-	Damage = InDamage;
+	Damage = InWeaponData->Ballistics.BaseDamage;
+	SourceWeaponData = InWeaponData;
 }
 
 void ASLBaseProjectile::OnProjectileHit(
@@ -73,6 +75,28 @@ void ASLBaseProjectile::OnProjectileHit(
 		OwnerActorRef,
 		nullptr
 	);
+
+	if (!SourceWeaponData)
+	{
+		return;
+	}
+	if (SourceWeaponData->ImpactEffect)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			GetWorld(),
+			SourceWeaponData->ImpactEffect,
+			Hit.ImpactPoint,
+			Hit.ImpactNormal.Rotation()
+			);
+	}
+	if (SourceWeaponData->ImpactSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(
+		this,
+		SourceWeaponData->ImpactSound,
+		Hit.ImpactPoint
+		);
+	}
 
 	Destroy();
 }

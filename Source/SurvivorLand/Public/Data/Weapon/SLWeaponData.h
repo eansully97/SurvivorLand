@@ -104,6 +104,12 @@ public:
 	UNiagaraSystem* TracerEffect;
 
 	UPROPERTY(EditDefaultsOnly)
+	UNiagaraSystem* ImpactEffect;
+
+	UPROPERTY(EditDefaultsOnly)
+	USoundCue* ImpactSound;
+
+	UPROPERTY(EditDefaultsOnly)
 	UParticleSystem* BeamTrail;
 
 	UPROPERTY(EditDefaultsOnly)

@@ -380,7 +380,7 @@ void USLSurvivorCombatComponent::Server_Fire_Implementation(const FVector_NetQua
 			Projectile->InitializeProjectile(
 				GetOwner(),
 				Cast<APawn>(GetOwner()) ? Cast<APawn>(GetOwner())->GetController() : nullptr,
-				WeaponData->Ballistics.BaseDamage
+				WeaponData
 			);
 			Projectile->SpawnTracerFX(WeaponData);
 
@@ -482,7 +482,7 @@ void USLSurvivorCombatComponent::ResolvePenetrationAndDamage(const ASLWeaponBase
 		if (HitActor == Weapon) continue;
 		if (Hit.bBlockingHit && !Hit.bStartPenetrating)
 		{
-			DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 5.f, 8, FColor::Green, false, 2.f);
+			SpawnImpactFX(Hit.ImpactPoint, Hit.ImpactNormal, Data);
 		}
 		
 		// Decide penetration cost
@@ -578,6 +578,33 @@ void USLSurvivorCombatComponent::SpawnFireSoundFX(const ASLWeaponBase* Weapon) c
 	}
 
 	UGameplayStatics::PlaySoundAtLocation(this, WeaponData->FireSound, Weapon->GetActorLocation());
+}
+
+void USLSurvivorCombatComponent::SpawnImpactFX(const FVector& ImpactPoint, const FVector& ImpactNormal,
+	const USLWeaponDataAsset* WeaponData) const
+{
+	if (!WeaponData)
+	{
+		return;
+	}
+	const FRotator ImpactRotation = ImpactNormal.Rotation();
+	if (WeaponData->ImpactEffect)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			GetWorld(),
+			WeaponData->ImpactEffect,
+			ImpactPoint,
+			ImpactRotation
+			);
+	}
+	if (WeaponData->ImpactSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(
+		this,
+		WeaponData->ImpactSound,
+		ImpactPoint
+		);
+	}
 }
 
 void USLSurvivorCombatComponent::DropEquippedWeapon()

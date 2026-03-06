@@ -46,6 +46,7 @@ public:
 
 	void SpawnMuzzleFlashFX(const ASLWeaponBase* Weapon) const;
 	void SpawnFireSoundFX(const ASLWeaponBase* Weapon) const;
+	void SpawnImpactFX(const FVector& ImpactPoint, const FVector& ImpactNormal, const USLWeaponDataAsset* WeaponData) const;
 
 protected:
 	
