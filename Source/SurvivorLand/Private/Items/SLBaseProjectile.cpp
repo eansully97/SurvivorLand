@@ -50,7 +50,7 @@ void ASLBaseProjectile::InitializeProjectile(AActor* InOwnerActor, AController* 
 {
 	OwnerActorRef = InOwnerActor;
 	InstigatorControllerRef = InInstigatorController;
-	Damage = InWeaponData->Ballistics.BaseDamage;
+	Damage = InWeaponData->DamageSettings.BaseDamage;
 	SourceWeaponData = InWeaponData;
 }
 
@@ -80,20 +80,20 @@ void ASLBaseProjectile::OnProjectileHit(
 	{
 		return;
 	}
-	if (SourceWeaponData->ImpactEffect)
+	if (SourceWeaponData->FXSettings.ImpactEffect)
 	{
 		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
 			GetWorld(),
-			SourceWeaponData->ImpactEffect,
+			SourceWeaponData->FXSettings.ImpactEffect,
 			Hit.ImpactPoint,
 			Hit.ImpactNormal.Rotation()
 			);
 	}
-	if (SourceWeaponData->ImpactSound)
+	if (SourceWeaponData->FXSettings.ImpactSound)
 	{
 		UGameplayStatics::PlaySoundAtLocation(
 		this,
-		SourceWeaponData->ImpactSound,
+		SourceWeaponData->FXSettings.ImpactSound,
 		Hit.ImpactPoint
 		);
 	}
@@ -103,13 +103,13 @@ void ASLBaseProjectile::OnProjectileHit(
 
 void ASLBaseProjectile::SpawnTracerFX(const USLWeaponDataAsset* WeaponData) const
 {
-	if (!WeaponData || !WeaponData->TracerEffect || !WeaponData->ProjectileClass)
+	if (!WeaponData || !WeaponData->FXSettings.ProjectileTracerEffect || !WeaponData->ProjectileSettings.ProjectileClass)
 	{
 		return;
 	}
 
 	UNiagaraFunctionLibrary::SpawnSystemAttached(
-		WeaponData->TracerEffect,
+		WeaponData->FXSettings.ProjectileTracerEffect,
 		GetRootComponent(),
 		FName(),
 		FVector::ZeroVector,

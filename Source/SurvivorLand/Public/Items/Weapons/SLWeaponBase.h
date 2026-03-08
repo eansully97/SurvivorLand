@@ -1,17 +1,14 @@
-﻿// Ean Sullivan All Rights Reserved
-
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "Data/Weapon/SLWeaponData.h"
 #include "GameFramework/Actor.h"
+#include "Data/Weapon/SLWeaponData.h"
 #include "SLWeaponBase.generated.h"
 
 class ASLSurvivorCharacterBase;
 class USphereComponent;
 class USkeletalMeshComponent;
 class USLWeaponDataAsset;
-class ASLBaseGameCharacter;
 
 UCLASS()
 class SURVIVORLAND_API ASLWeaponBase : public AActor
@@ -21,49 +18,79 @@ class SURVIVORLAND_API ASLWeaponBase : public AActor
 public:
 	ASLWeaponBase();
 
-	UFUNCTION()
-	void ServerGiveTo(ASLSurvivorCharacterBase* NewOwnerChar);
-
-	UFUNCTION()
-	void ServerDropFromOwner(const FVector& WorldLocation, const FVector& Impulse = FVector::ZeroVector);
-
-	void ServerAttachToOwnerSocket(ASLSurvivorCharacterBase* NewOwnerChar, const FName& SocketName, bool bOwnedByPlayer);
-	
-protected:
-
-	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void BeginPlay() override;
+	virtual void OnConstruction(const FTransform& Transform) override;
 
-	void ApplyVisualFromDataAsset() const;
-	void SetPickupEnabled(bool bEnabled);
-	void SetPhysicsEnabled(bool bEnabled) const;
+	/* -----------------------------
+	 * Ownership / attachment
+	 * ----------------------------- */
 
-private:
+	void AttachToCharacter(ASLSurvivorCharacterBase* NewOwnerChar, const FName& SocketName, bool bInOwnedByPlayer);
+	void DropFromOwner(const FVector& WorldLocation, const FVector& Impulse = FVector::ZeroVector);
 
-	UPROPERTY(VisibleAnywhere, Category="Weapon")
-	TObjectPtr<USphereComponent> PickupSphere;
+	/* -----------------------------
+	 * Ammo
+	 * ----------------------------- */
 
-	UPROPERTY(VisibleAnywhere, Category="Weapon")
-	TObjectPtr<USkeletalMeshComponent> Mesh;
+	bool IsFull() const;
+	bool IsEmpty() const;
 
-	UPROPERTY(EditDefaultsOnly, Category="Weapon")
-	TObjectPtr<USLWeaponDataAsset> WeaponData;
-	
-	UPROPERTY(Replicated)
-	bool bIsOwnedByPlayer = false;
+	void SpendRound();
+	void SetCurrentAmmoInMag(int32 NewAmount);
+	void AddAmmoToMag(int32 AmmoToAdd);
+	void FillMagazine();
 
-public:
-	
-	// Getters
+	/* -----------------------------
+	 * Pickup / transforms
+	 * ----------------------------- */
+
+	EAmmoType GetAmmoType() const;
 	UFUNCTION(BlueprintPure)
 	FTransform GetMuzzleTransform() const;
 
-	UFUNCTION(BlueprintPure)
-	USkeletalMeshComponent* GetWeaponMesh() const {return Mesh;}
-	
-	// Inline Getters
-	FORCEINLINE FName GetMuzzleSocketName() const {return WeaponData ? WeaponData->Ballistics.MuzzleSocketName : TEXT("Muzzle");}
-	FORCEINLINE bool IsHeld() const {return bIsOwnedByPlayer;}
-	FORCEINLINE USphereComponent* GetSphereComponent() const {return PickupSphere;}
-	FORCEINLINE USLWeaponDataAsset* GetWeaponData() const {return WeaponData;}
+	UFUNCTION(BlueprintPure, Category="SL|Weapon")
+	bool IsHeld() const { return bIsOwnedByPlayer; }
+
+	UFUNCTION(BlueprintPure, Category="SL|Weapon")
+	USkeletalMeshComponent* GetWeaponMesh() const { return Mesh; }
+
+	UFUNCTION(BlueprintPure, Category="SL|Weapon")
+	USphereComponent* GetSphereComponent() const { return PickupSphere; }
+
+	UFUNCTION(BlueprintPure, Category="SL|Weapon")
+	USLWeaponDataAsset* GetWeaponData() const { return WeaponData; }
+
+	UFUNCTION(BlueprintPure, Category="SL|Weapon")
+	int32 GetCurrentAmmoInMag() const { return CurrentAmmoInMag; }
+
+	FORCEINLINE FName GetMuzzleSocketName() const
+	{
+		return WeaponData ? WeaponData->SocketInformation.MuzzleSocketName : TEXT("Muzzle");
+	}
+
+protected:
+	void ApplyVisualFromDataAsset() const;
+	void SetPickupEnabled(bool bEnabled);
+	void SetPhysicsEnabled(bool bEnabled) const;
+	void InitializeMagazineAmmo();
+
+	UFUNCTION()
+	void OnRep_CurrentAmmoInMag();
+
+private:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="SL|Weapon", meta=(AllowPrivateAccess="true"))
+	TObjectPtr<USkeletalMeshComponent> Mesh;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="SL|Weapon", meta=(AllowPrivateAccess="true"))
+	TObjectPtr<USphereComponent> PickupSphere;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="SL|Weapon", meta=(AllowPrivateAccess="true"))
+	TObjectPtr<USLWeaponDataAsset> WeaponData;
+
+	UPROPERTY(ReplicatedUsing=OnRep_CurrentAmmoInMag, VisibleInstanceOnly, Category="SL|Weapon", meta=(AllowPrivateAccess="true"))
+	int32 CurrentAmmoInMag = 0;
+
+	UPROPERTY(Replicated, VisibleInstanceOnly, Category="SL|Weapon", meta=(AllowPrivateAccess="true"))
+	bool bIsOwnedByPlayer = false;
 };

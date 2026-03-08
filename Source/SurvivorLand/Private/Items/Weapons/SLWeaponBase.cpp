@@ -1,14 +1,9 @@
-﻿// Ean Sullivan All Rights Reserved
-
-#include "Items/Weapons/SLWeaponBase.h"
+﻿#include "Items/Weapons/SLWeaponBase.h"
 
 #include "Components/SphereComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Net/UnrealNetwork.h"
-#include "Characters/SLBaseGameCharacter.h"
 #include "Characters/SLSurvivorCharacterBase.h"
-#include "Components/Combat/SLSurvivorCombatComponent.h"
-#include "Data/Weapon/SLWeaponData.h"
 
 ASLWeaponBase::ASLWeaponBase()
 {
@@ -17,7 +12,7 @@ ASLWeaponBase::ASLWeaponBase()
 
 	Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Mesh"));
 	SetRootComponent(Mesh);
-	
+
 	Mesh->SetSimulatePhysics(true);
 	Mesh->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
 	Mesh->SetCollisionProfileName(TEXT("PhysicsActor"));
@@ -30,10 +25,24 @@ ASLWeaponBase::ASLWeaponBase()
 	PickupSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 }
 
+void ASLWeaponBase::BeginPlay()
+{
+	Super::BeginPlay();
+	InitializeMagazineAmmo();
+}
+
 void ASLWeaponBase::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
 	ApplyVisualFromDataAsset();
+}
+
+void ASLWeaponBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ThisClass, CurrentAmmoInMag);
+	DOREPLIFETIME(ThisClass, bIsOwnedByPlayer);
 }
 
 void ASLWeaponBase::ApplyVisualFromDataAsset() const
@@ -48,89 +57,58 @@ void ASLWeaponBase::ApplyVisualFromDataAsset() const
 	}
 }
 
-FTransform ASLWeaponBase::GetMuzzleTransform() const
+void ASLWeaponBase::InitializeMagazineAmmo()
 {
-	if (!Mesh) return GetActorTransform();
-
-	const FName Socket = GetMuzzleSocketName();
-	if (Mesh->DoesSocketExist(Socket))
+	if (!HasAuthority() || !WeaponData)
 	{
-		return Mesh->GetSocketTransform(Socket, RTS_World);
+		return;
 	}
 
-	return Mesh->GetComponentTransform();
+	// Only initialize if it has not been set yet.
+	if (CurrentAmmoInMag <= 0)
+	{
+		CurrentAmmoInMag = WeaponData->FireSettings.MagazineSize;
+	}
+}
+
+void ASLWeaponBase::OnRep_CurrentAmmoInMag()
+{
+	// Hook for UI / cosmetic refresh later if desired.
 }
 
 void ASLWeaponBase::SetPickupEnabled(bool bEnabled)
 {
-	if (!PickupSphere) return;
+	if (!PickupSphere)
+	{
+		return;
+	}
 
 	PickupSphere->SetCollisionEnabled(bEnabled ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
-	SetActorEnableCollision(bEnabled);
 }
 
-void ASLWeaponBase::SetPhysicsEnabled(const bool bEnabled) const
+void ASLWeaponBase::SetPhysicsEnabled(bool bEnabled) const
 {
-	if (!Mesh) return;
+	if (!Mesh)
+	{
+		return;
+	}
 
 	Mesh->SetSimulatePhysics(bEnabled);
 	Mesh->SetCollisionEnabled(bEnabled ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
 }
 
-void ASLWeaponBase::ServerGiveTo(ASLSurvivorCharacterBase* NewOwnerChar)
-{
-	if (!NewOwnerChar || !WeaponData)
-	{
-		return;
-	}
-
-	const FName AttachSocket = NewOwnerChar->GetWeaponAttachSocket(WeaponData->Grip);
-	ServerAttachToOwnerSocket(NewOwnerChar, AttachSocket, true);
-
-	if (USLSurvivorCombatComponent* Combat = NewOwnerChar->FindComponentByClass<USLSurvivorCombatComponent>())
-	{
-		Combat->Client_ApplyEquippedPresentation(WeaponData);
-	}
-}
-
-void ASLWeaponBase::ServerDropFromOwner(const FVector& WorldLocation, const FVector& Impulse)
-{
-	if (!HasAuthority() || !bIsOwnedByPlayer)
-	{
-		return;
-	}
-
-	bIsOwnedByPlayer = false;
-
-	DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-	SetActorLocation(WorldLocation);
-
-	// Re-enable pickup + physics
-	SetPhysicsEnabled(true);
-	SetPickupEnabled(true);
-
-	if (!Impulse.IsNearlyZero())
-	{
-		Mesh->AddImpulse(Impulse, NAME_None, true);
-	}
-}
-
-void ASLWeaponBase::ServerAttachToOwnerSocket(ASLSurvivorCharacterBase* NewOwnerChar, const FName& SocketName, bool bOwnedByPlayer)
+void ASLWeaponBase::AttachToCharacter(ASLSurvivorCharacterBase* NewOwnerChar, const FName& SocketName, bool bInOwnedByPlayer)
 {
 	if (!HasAuthority() || !NewOwnerChar || !Mesh)
 	{
 		return;
 	}
 
-	bIsOwnedByPlayer = bOwnedByPlayer;
+	bIsOwnedByPlayer = bInOwnedByPlayer;
 
-	Mesh->SetSimulatePhysics(false);
-	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-
-	if (PickupSphere)
-	{
-		PickupSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	}
+	SetOwner(NewOwnerChar);
+	SetPhysicsEnabled(false);
+	SetPickupEnabled(false);
 
 	AttachToComponent(
 		NewOwnerChar->GetMesh(),
@@ -139,10 +117,95 @@ void ASLWeaponBase::ServerAttachToOwnerSocket(ASLSurvivorCharacterBase* NewOwner
 	);
 }
 
-void ASLWeaponBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+void ASLWeaponBase::DropFromOwner(const FVector& WorldLocation, const FVector& Impulse)
 {
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(ASLWeaponBase, bIsOwnedByPlayer);
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	bIsOwnedByPlayer = false;
+
+	DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+	SetOwner(nullptr);
+	SetActorLocation(WorldLocation);
+
+	SetPhysicsEnabled(true);
+	SetPickupEnabled(true);
+
+	if (Mesh && !Impulse.IsNearlyZero())
+	{
+		Mesh->AddImpulse(Impulse, NAME_None, true);
+	}
 }
 
+bool ASLWeaponBase::IsFull() const
+{
+	return WeaponData && CurrentAmmoInMag >= WeaponData->FireSettings.MagazineSize;
+}
 
+bool ASLWeaponBase::IsEmpty() const
+{
+	return CurrentAmmoInMag <= 0;
+}
+
+void ASLWeaponBase::SpendRound()
+{
+	CurrentAmmoInMag = FMath::Max(0, CurrentAmmoInMag - 1);
+}
+
+void ASLWeaponBase::SetCurrentAmmoInMag(int32 NewAmount)
+{
+	if (!WeaponData)
+	{
+		CurrentAmmoInMag = FMath::Max(0, NewAmount);
+		return;
+	}
+
+	CurrentAmmoInMag = FMath::Clamp(NewAmount, 0, WeaponData->FireSettings.MagazineSize);
+}
+
+void ASLWeaponBase::AddAmmoToMag(int32 AmmoToAdd)
+{
+	if (!WeaponData || AmmoToAdd <= 0)
+	{
+		return;
+	}
+
+	CurrentAmmoInMag = FMath::Clamp(
+		CurrentAmmoInMag + AmmoToAdd,
+		0,
+		WeaponData->FireSettings.MagazineSize
+	);
+}
+
+void ASLWeaponBase::FillMagazine()
+{
+	if (!WeaponData)
+	{
+		return;
+	}
+
+	CurrentAmmoInMag = WeaponData->FireSettings.MagazineSize;
+}
+
+EAmmoType ASLWeaponBase::GetAmmoType() const
+{
+	return WeaponData ? WeaponData->FireSettings.AmmoType : EAmmoType::Small;
+}
+
+FTransform ASLWeaponBase::GetMuzzleTransform() const
+{
+	if (!Mesh)
+	{
+		return GetActorTransform();
+	}
+
+	const FName SocketName = GetMuzzleSocketName();
+	if (Mesh->DoesSocketExist(SocketName))
+	{
+		return Mesh->GetSocketTransform(SocketName, RTS_World);
+	}
+
+	return Mesh->GetComponentTransform();
+}

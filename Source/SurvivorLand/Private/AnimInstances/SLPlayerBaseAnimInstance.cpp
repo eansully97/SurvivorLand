@@ -20,7 +20,11 @@ void USLBasePlayerAnimInstance::NativeInitializeAnimation()
 
 void USLBasePlayerAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSeconds)
 {
-	if (!OwningCharacter || !OwningMovementComponent)
+	if (!OwningCharacter)
+	{
+		OwningCharacter = Cast<ASLSurvivorCharacterBase>(TryGetPawnOwner());
+	}
+	if (!OwningMovementComponent)
 	{
 		return;
 	}
@@ -36,6 +40,8 @@ void USLBasePlayerAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSecon
 	bWeaponEquipped = OwningCharacter->IsWeaponEquipped();
 	AimTargetWorld = OwningCharacter->GetAimTargetWorldSmoothed();
 	bAiming = OwningCharacter->IsAiming();
+	bLocallyReloading = OwningCharacter->GetSurvivorCombatComponent()->IsReloading();
+	
 	
 	if (ASLWeaponBase* W = OwningCharacter->GetEquippedWeapon())
 	{
@@ -46,12 +52,7 @@ void USLBasePlayerAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSecon
 		EquippedWeaponData = nullptr;
 	}
 
-	const bool bAim = OwningCharacter && OwningCharacter->GetSurvivorCombatComponent()
-	? OwningCharacter->GetSurvivorCombatComponent()->IsAiming()
-	: false;
-
-	const float Speed = bAim ? 10.f : 14.f;
-	ADSAlpha = FMath::FInterpTo(ADSAlpha, bAim ? 1.f : 0.f, DeltaSeconds, Speed);
+	ADSAlpha = OwningCharacter->GetSurvivorCombatComponent()->GetRaiseAlpha();
 
 	const FRotator ActorRot = OwningCharacter->GetActorRotation();
 	const FRotator ControlRot = OwningCharacter->GetControlRotation();

@@ -59,7 +59,9 @@ protected:
 	virtual void Tick(float DeltaTime) override;
 
 	void UpdateAimTarget(float DeltaSeconds);
-
+	
+private:
+	
 	UPROPERTY()
 	FVector AimTargetWorld = FVector::ZeroVector;
 

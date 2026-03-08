@@ -7,6 +7,7 @@
 #include "Data/Weapon/SLWeaponData.h"
 #include "SLBasePlayerAnimInstance.generated.h"
 
+
 class ASLSurvivorCharacterBase;
 class ASLBaseGameCharacter;
 class UCharacterMovementComponent;
@@ -38,7 +39,7 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="AnimData|Weapon")
 	TWeakObjectPtr<const USLWeaponDataAsset> EquippedWeaponData;
 
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "AnimData|LocomotionData")
 	float ADSAlpha = 0.f;
 	
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "AnimData|LocomotionData")
@@ -52,6 +53,9 @@ protected:
 	
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "AnimData|LocomotionData")
 	bool bWeaponEquipped;
+
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "AnimData|LocomotionData")
+	bool bLocallyReloading;
 
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "AnimData|LocomotionData")
 	float Direction;
